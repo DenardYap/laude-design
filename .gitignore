@@ -1,0 +1,29 @@
+node_modules
+.next
+out
+build
+dist
+
+# env
+.env
+.env*.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+
+# IDE
+.idea
+.vscode
+
+# Prisma
+prisma/migrations/dev.db*
+
+# Misc
+*.tsbuildinfo
+next-env.d.ts
