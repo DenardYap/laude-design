@@ -9,25 +9,25 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/85 shadow-sm",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        outline: "border border-border bg-background hover:bg-muted hover:text-foreground",
-        ghost: "hover:bg-muted hover:text-foreground",
+        primary: "bg-brand text-brand-foreground hover:bg-brand-hover shadow-sm",
+        secondary: "bg-surface-sunken text-ink hover:bg-surface-sunken/80",
+        outline: "border border-border bg-surface text-ink hover:bg-surface-sunken",
+        ghost: "text-ink hover:bg-surface-sunken",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm",
         success: "bg-success text-success-foreground hover:bg-success/90 shadow-sm",
         warning: "bg-warning text-warning-foreground hover:bg-warning/90 shadow-sm",
-        link: "text-primary-foreground underline-offset-4 hover:underline",
+        link: "text-ink underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
+        sm: "h-8 rounded-sm px-3 text-xs",
+        md: "h-9 px-4 py-2",
         lg: "h-10 rounded-md px-6",
         icon: "h-9 w-9",
       },
     },
     defaultVariants: {
-      variant: "default",
-      size: "default",
+      variant: "primary",
+      size: "md",
     },
   },
 );

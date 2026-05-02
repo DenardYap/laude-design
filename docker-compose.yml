@@ -1,18 +1,18 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: claude_design_db
+    container_name: laude_design_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: claude
-      POSTGRES_PASSWORD: claude
-      POSTGRES_DB: claude_design
+      POSTGRES_USER: laude
+      POSTGRES_PASSWORD: laude
+      POSTGRES_DB: laude_design
     ports:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U claude -d claude_design"]
+      test: ["CMD-SHELL", "pg_isready -U laude -d laude_design"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -21,12 +21,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: claude_design_app
+    container_name: laude_design_app
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://claude:claude@db:5432/claude_design?schema=public
+      DATABASE_URL: postgresql://laude:laude@db:5432/laude_design?schema=public
     ports:
       - "3000:3000"
     depends_on:

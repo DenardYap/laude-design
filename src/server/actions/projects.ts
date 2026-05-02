@@ -30,4 +30,5 @@ export async function renameProject(id: string, name: string) {
     data: { name: data.name },
   });
   revalidatePath("/projects");
+  revalidatePath(`/projects/${id}`);
 }

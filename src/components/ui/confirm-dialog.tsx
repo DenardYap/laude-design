@@ -9,8 +9,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "./dialog";
+import { Button } from "./button";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -19,10 +19,19 @@ interface ConfirmDialogProps {
   description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  variant?: "default" | "destructive";
+  /**
+   * "destructive" surfaces a red confirm to signal irreversible damage —
+   * use it for delete/remove. Default is the brand primary.
+   */
+  tone?: "primary" | "destructive";
   onConfirm: () => void | Promise<void>;
 }
 
+/**
+ * Forcing function for irreversible actions (per design.mdc Lock-ins). Always
+ * prefer this over a bare button for destructive actions so users can recover
+ * from a slip without the cost of the action.
+ */
 export function ConfirmDialog({
   open,
   onOpenChange,
@@ -30,7 +39,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
-  variant = "default",
+  tone = "primary",
   onConfirm,
 }: ConfirmDialogProps) {
   const [pending, setPending] = React.useState(false);
@@ -57,7 +66,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button
-            variant={variant === "destructive" ? "destructive" : "default"}
+            variant={tone === "destructive" ? "destructive" : "primary"}
             onClick={handleConfirm}
             disabled={pending}
           >

@@ -3,17 +3,19 @@
 import * as React from "react";
 import { Check, Filter } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
+  Button,
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
+  Pill,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui";
 import { useScopeFilters, type FilterScope } from "@/stores/filters-store";
 import { cn } from "@/lib/utils";
 
@@ -43,20 +45,34 @@ export function MultiSelectFilter({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          variant={triggerVariant}
-          size={showAsIcon ? "icon" : "default"}
-          className={cn(showAsIcon && "rounded-full")}
-          aria-label={label}
-        >
-          <Filter className="size-4" />
-          {!showAsIcon ? <span>{label}</span> : null}
-          {count > 0 ? (
-            <Badge variant="secondary" className="ml-1 h-5 rounded-full px-2 text-[10px]">
-              {count}
-            </Badge>
-          ) : null}
-        </Button>
+        {showAsIcon ? (
+          <Button
+            variant={triggerVariant}
+            size="icon"
+            className="relative rounded-full"
+            aria-label={count > 0 ? `${label} (${count} active)` : label}
+          >
+            <Filter className="size-4" />
+            {count > 0 ? (
+              <span
+                aria-hidden
+                className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-medium leading-none text-brand-foreground shadow-sm ring-2 ring-background"
+              >
+                {count}
+              </span>
+            ) : null}
+          </Button>
+        ) : (
+          <Button variant={triggerVariant} size="md" aria-label={label}>
+            <Filter className="size-4" />
+            <span>{label}</span>
+            {count > 0 ? (
+              <Pill tone="brand" className="ml-1 h-5 px-2 text-[10px]">
+                {count}
+              </Pill>
+            ) : null}
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56 p-0">
         <Command>
@@ -74,8 +90,8 @@ export function MultiSelectFilter({
                   >
                     <div
                       className={cn(
-                        "mr-2 flex size-4 items-center justify-center rounded-sm border border-primary",
-                        isSelected ? "bg-primary text-primary-foreground" : "opacity-50",
+                        "mr-2 flex size-4 items-center justify-center rounded-sm border border-brand",
+                        isSelected ? "bg-brand text-brand-foreground" : "opacity-50",
                       )}
                     >
                       {isSelected ? <Check className="size-3" /> : null}

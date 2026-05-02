@@ -17,6 +17,10 @@ interface DataListProps {
   renderItem?: (item: DataListItem) => React.ReactNode;
 }
 
+/**
+ * Vertical list of rows separated by a single divider — used for projects,
+ * skills, settings rows. One source of truth for that layout.
+ */
 export function DataList({ items, className, renderItem }: DataListProps) {
   return (
     <ul className={cn("flex flex-col", className)}>
@@ -33,15 +37,15 @@ export function DataList({ items, className, renderItem }: DataListProps) {
           ) : (
             <>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-base font-semibold tracking-tight">{item.title}</div>
+                <div className="truncate text-base font-semibold tracking-tight text-ink">
+                  {item.title}
+                </div>
                 {item.subtitle ? (
-                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {item.subtitle}
-                  </div>
+                  <div className="mt-0.5 truncate text-xs text-ink-muted">{item.subtitle}</div>
                 ) : null}
               </div>
               {item.meta ? (
-                <div className="hidden text-xs text-muted-foreground sm:block">{item.meta}</div>
+                <div className="hidden text-xs text-ink-muted sm:block">{item.meta}</div>
               ) : null}
               {item.actions ? <div className="flex items-center gap-1">{item.actions}</div> : null}
             </>

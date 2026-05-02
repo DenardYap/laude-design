@@ -6,7 +6,7 @@ import { CreateProjectDialog } from "@/components/projects/create-project-dialog
 import { ProjectList } from "@/components/projects/project-list";
 import { SearchBar } from "@/components/shared/search-bar";
 import { MultiSelectFilter } from "@/components/shared/multi-select-filter";
-import { EmptyState } from "@/components/shared/empty-state";
+import { EmptyState, PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Projects · Laude Design" };
 
@@ -19,22 +19,29 @@ export default async function ProjectsPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <CreateProjectDialog />
-      </div>
+    <div className="mx-auto w-full max-w-2xl space-y-6">
+      <PageHeader
+        title="Projects"
+        description="Open a project to start designing with your favorite model."
+        actions={<CreateProjectDialog />}
+      />
 
-      <div className="flex items-center justify-center gap-3">
-        <SearchBar scope="projects" placeholder="Search projects..." className="w-full max-w-md" />
+      <div className="flex items-center gap-2">
+        <SearchBar
+          scope="projects"
+          placeholder="Search projects..."
+          className="flex-1"
+        />
         <MultiSelectFilter
           scope="projects"
           options={[
-            { value: "claude", label: "Laude" },
-            { value: "openai", label: "OpenAI" },
-            { value: "gemini", label: "Gemini" },
+            { value: "today", label: "Today" },
+            { value: "week", label: "This week" },
+            { value: "month", label: "This month" },
+            { value: "older", label: "Older" },
           ]}
           showAsIcon
-          label="Filter by model"
+          label="Filter by last updated"
         />
       </div>
 
@@ -42,7 +49,7 @@ export default async function ProjectsPage() {
         <EmptyState
           icon={<FolderKanban className="size-10" />}
           title="No projects yet"
-          description="Create your first project to start designing with your favorite model."
+          description="Projects bundle your designs, chat sessions, and uploaded files. Create one to start."
           action={<CreateProjectDialog />}
         />
       ) : (

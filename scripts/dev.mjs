@@ -102,16 +102,54 @@ function applyMigrations() {
   run("pnpm", ["prisma", "migrate", "deploy"]);
 }
 
+// Routes the dev server should compile up-front so the first navigation to
+// each page doesn't have to wait for on-demand compilation. Add new pages
+// here as they're created.
+const PREWARM_ROUTES = ["/", "/projects", "/skills", "/api-keys", "/sign-in"];
+
+async function waitForServer(baseUrl, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(baseUrl, { redirect: "manual" });
+      if (res.status > 0) return true;
+    } catch {
+      // server not up yet
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return false;
+}
+
+function prewarmRoutes(port) {
+  const baseUrl = `http://localhost:${port}`;
+  (async () => {
+    const ready = await waitForServer(baseUrl, 60_000);
+    if (!ready) return;
+    console.log(`\n  ${c.dim("Pre-warming routes so first navigation is instant…")}`);
+    await Promise.all(
+      PREWARM_ROUTES.map((route) =>
+        fetch(`${baseUrl}${route}`, { redirect: "manual" }).catch(() => {}),
+      ),
+    );
+    console.log(`  ${c.dim(`Pre-warmed ${PREWARM_ROUTES.length} routes.`)}`);
+  })();
+}
+
 function runNextDev() {
   step("Starting Next.js dev server");
   info("Frontend + backend on http://localhost:3000");
   console.log("");
 
-  const child = spawn("pnpm", ["exec", "next", "dev"], {
+  const port = process.env.PORT ?? "3000";
+
+  const child = spawn("pnpm", ["exec", "next", "dev", "--turbopack"], {
     stdio: "inherit",
     cwd: ROOT,
     env: process.env,
   });
+
+  prewarmRoutes(port);
 
   const forward = (signal) => {
     if (!child.killed) child.kill(signal);

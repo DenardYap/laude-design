@@ -1,35 +1,39 @@
+import { ShieldAlert } from "lucide-react";
+
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { PageHeader } from "@/components/shared/page-header";
-import { ApiKeyWarningBanner } from "@/components/api-keys/api-key-warning-banner";
-import { ApiKeyRow, type ProviderConfig } from "@/components/api-keys/api-key-row";
+import { PageHeader } from "@/components/ui";
+import { ApiKeysList } from "@/components/api-keys/api-keys-list";
+import type { ProviderConfig } from "@/components/api-keys/api-key-row";
+import { AnthropicIcon, GoogleIcon, OpenAIIcon } from "@/components/api-keys/provider-icons";
+import type { AiProvider } from "@/lib/validators";
 
 export const metadata = { title: "Configure API · Laude Design" };
 
 const PROVIDERS: ProviderConfig[] = [
   {
     provider: "CLAUDE",
-    name: "Laude",
-    description: "Anthropic Laude (3.5/3.7/4.x).",
+    name: "Anthropic",
     placeholder: "sk-ant-...",
     docsUrl: "https://console.anthropic.com/settings/keys",
-    accent: "bg-primary text-primary-foreground",
+    dashboardLabel: "Anthropic Console",
+    icon: <AnthropicIcon />,
   },
   {
     provider: "GEMINI",
-    name: "Gemini",
-    description: "Google Gemini API key.",
+    name: "Google",
     placeholder: "AIza...",
     docsUrl: "https://aistudio.google.com/app/apikey",
-    accent: "bg-accent text-accent-foreground",
+    dashboardLabel: "Google AI Studio",
+    icon: <GoogleIcon />,
   },
   {
     provider: "OPENAI",
     name: "OpenAI",
-    description: "GPT-4o / GPT-4.1 / o-series.",
     placeholder: "sk-...",
     docsUrl: "https://platform.openai.com/api-keys",
-    accent: "bg-success/15 text-success",
+    dashboardLabel: "OpenAI Platform",
+    icon: <OpenAIIcon />,
   },
 ];
 
@@ -37,26 +41,34 @@ export default async function ApiKeysPage() {
   const user = await requireUser();
   const existingKeys = await db.apiKey.findMany({
     where: { userId: user.id },
-    select: { provider: true, lastFour: true, label: true, updatedAt: true },
+    select: { provider: true, lastFour: true, updatedAt: true },
   });
-  const byProvider = new Map(existingKeys.map((k) => [k.provider, k]));
+
+  const existingByProvider = existingKeys.reduce(
+    (acc, k) => {
+      acc[k.provider as AiProvider] = {
+        lastFour: k.lastFour,
+        updatedAt: k.updatedAt,
+      };
+      return acc;
+    },
+    {} as Record<AiProvider, { lastFour: string; updatedAt: Date } | undefined>,
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6">
       <PageHeader
         title="Configure API"
-        description="Bring your own keys for the LLMs you want to use in design mode. Keys are encrypted at rest."
+        description="Bring your own keys for the LLMs you want to use. Keys are encrypted at rest."
       />
-      <ApiKeyWarningBanner />
-      <div className="space-y-3">
-        {PROVIDERS.map((config) => (
-          <ApiKeyRow
-            key={config.provider}
-            config={config}
-            existing={byProvider.get(config.provider) ?? undefined}
-          />
-        ))}
-      </div>
+      <p className="flex items-start gap-1.5 text-xs text-ink-muted">
+        <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
+        <span>
+          Use a dedicated key per provider — never reuse a production key. Keys are encrypted at
+          rest with AES-256-GCM and never shown in full.
+        </span>
+      </p>
+      <ApiKeysList providers={PROVIDERS} existingByProvider={existingByProvider} />
     </div>
   );
 }

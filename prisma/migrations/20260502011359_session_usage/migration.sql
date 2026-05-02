@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "ChatSession" ADD COLUMN     "cumulativeInputTokens" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "cumulativeOutputTokens" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "summarizedCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "totalCostUsd" DOUBLE PRECISION NOT NULL DEFAULT 0;

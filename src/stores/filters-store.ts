@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type FilterScope = "projects" | "skills:mine" | "skills:public";
+export type FilterScope = "projects" | "skills:mine" | "skills:public" | "api-keys";
 
 interface ScopeState {
   query: string;
@@ -24,6 +24,7 @@ export const useFiltersStore = create<FiltersState>((set) => ({
     projects: empty(),
     "skills:mine": empty(),
     "skills:public": empty(),
+    "api-keys": empty(),
   },
   setQuery: (scope, query) =>
     set((s) => ({
