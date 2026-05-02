@@ -7,8 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -16,11 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+  Input,
+  Label,
+  Switch,
+  Textarea,
+} from "@/components/ui";
 import { SkillSchema, type SkillInput } from "@/lib/validators";
 import { uploadSkill } from "@/server/actions/skills";
 
@@ -45,7 +45,9 @@ export function SkillUploader() {
     const text = await file.text();
     form.setValue("content", text, { shouldValidate: true });
     if (!form.getValues("name")) {
-      form.setValue("name", file.name.replace(/\.(md|markdown|txt)$/i, ""), { shouldValidate: true });
+      form.setValue("name", file.name.replace(/\.(md|markdown|txt)$/i, ""), {
+        shouldValidate: true,
+      });
     }
   }
 
@@ -95,14 +97,18 @@ export function SkillUploader() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="skill-name">Name</Label>
-            <Input id="skill-name" placeholder="My design system rules" {...form.register("name")} />
+            <Input
+              id="skill-name"
+              placeholder="My design system rules"
+              {...form.register("name")}
+            />
             {form.formState.errors.name ? (
               <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
             ) : null}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="skill-description">
-              Description <span className="text-muted-foreground">(optional)</span>
+              Description <span className="text-ink-subtle">(optional)</span>
             </Label>
             <Input
               id="skill-description"
@@ -128,7 +134,7 @@ export function SkillUploader() {
               <Label htmlFor="skill-public" className="text-sm font-medium">
                 Make public
               </Label>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-ink-muted">
                 Allow other users to download and use this skill.
               </p>
             </div>
@@ -139,7 +145,12 @@ export function SkillUploader() {
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setOpen(false)}
+              disabled={pending}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>

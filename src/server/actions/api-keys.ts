@@ -21,12 +21,10 @@ export async function saveApiKey(input: ApiKeyInput) {
       provider: data.provider as PrismaAiProvider,
       ciphertext,
       lastFour,
-      label: data.label ?? null,
     },
     update: {
       ciphertext,
       lastFour,
-      label: data.label ?? null,
     },
   });
 

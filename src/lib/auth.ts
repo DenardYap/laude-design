@@ -3,6 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { db } from "@/lib/db";
 
@@ -15,12 +16,7 @@ declare module "next-auth" {
   }
 }
 
-export const {
-  handlers,
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
+const nextAuth = NextAuth({
   adapter: PrismaAdapter(db),
   session: { strategy: "database" },
   trustHost: true,
@@ -52,8 +48,16 @@ export const {
   },
 });
 
-export async function requireUser() {
+export const { handlers, signIn, signOut } = nextAuth;
+
+// Wrap `auth()` in React cache so a single request that calls it multiple
+// times (e.g. layout + page + nested server component) only hits the database
+// once. The session callback itself does an extra `db.user.findUnique`, so
+// deduping here saves real round-trips on the request-response critical path.
+export const auth = cache(nextAuth.auth);
+
+export const requireUser = cache(async () => {
   const session = await auth();
   if (!session?.user?.id) redirect("/sign-in");
   return session.user;
-}
+});

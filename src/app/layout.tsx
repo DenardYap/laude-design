@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Barlow } from "next/font/google";
 
 import "@/styles/globals.css";
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster, TooltipProvider } from "@/components/ui";
+import { QueryProvider } from "@/components/providers/query-provider";
 
 const barlow = Barlow({
   subsets: ["latin"],
@@ -20,9 +20,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className={barlow.variable}>
-      <body className="min-h-screen bg-background font-sans antialiased">
-        <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
-        <Toaster richColors closeButton />
+      <body suppressHydrationWarning className="min-h-screen bg-background font-sans antialiased">
+        <QueryProvider>
+          <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+        </QueryProvider>
+        <Toaster closeButton />
       </body>
     </html>
   );

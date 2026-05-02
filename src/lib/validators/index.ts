@@ -15,7 +15,6 @@ export const ApiKeySchema = z.object({
     .min(8, "Key looks too short")
     .max(512, "Key looks too long")
     .refine((v) => !/\s/.test(v), "API key cannot contain whitespace"),
-  label: z.string().max(60).optional().nullable(),
 });
 export type ApiKeyInput = z.infer<typeof ApiKeySchema>;
 

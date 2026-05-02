@@ -27,3 +27,15 @@ export function getInitials(name?: string | null, email?: string | null): string
   if (parts.length === 1) return source.slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
+
+// Rough character → token estimate using the 4 chars ≈ 1 token heuristic.
+// Good enough for surface-level UI hints; real tokenization varies by model.
+export function estimateTokens(chars: number): number {
+  return Math.round(Math.max(0, chars) / 4);
+}
+
+export function formatSkillSize(chars: number): string {
+  const safeChars = Math.max(0, chars);
+  const tokens = estimateTokens(safeChars);
+  return `${safeChars.toLocaleString("en-US")} chars, ~${tokens.toLocaleString("en-US")} tokens`;
+}

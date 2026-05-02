@@ -4,28 +4,16 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChevronsLeft, FolderKanban, KeyRound, Wand2 } from "lucide-react";
+
 import {
-  ChevronsLeft,
-  ChevronsRight,
-  FolderKanban,
-  KeyRound,
-  Wand2,
-} from "lucide-react";
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+  IconButton,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui";
 import { useUiStore } from "@/stores/ui-store";
-import { cn, getInitials } from "@/lib/utils";
-
-interface AppSidebarProps {
-  user: {
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-    workspaceName?: string | null;
-  };
-}
+import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/projects", label: "Projects", icon: FolderKanban },
@@ -33,76 +21,61 @@ const navItems = [
   { href: "/skills", label: "Skills", icon: Wand2 },
 ];
 
-export function AppSidebar({ user }: AppSidebarProps) {
+const EASE = "cubic-bezier(0.32,0.72,0,1)";
+const DURATION = "duration-300";
+
+export function AppSidebar() {
   const pathname = usePathname();
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
-  const initials = getInitials(user.name, user.email);
-  const workspaceLabel = user.workspaceName || `${user.name?.split(" ")[0] ?? "Your"}'s workspace`;
+  React.useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleSidebar]);
 
   return (
     <aside
+      style={{ transitionTimingFunction: EASE }}
       className={cn(
-        "flex h-screen shrink-0 flex-col border-r border-border bg-card transition-[width] duration-200",
+        "flex h-screen shrink-0 flex-col overflow-hidden border-r border-border bg-surface transition-[width]",
+        DURATION,
         collapsed ? "w-16" : "w-60",
       )}
     >
-      <div className={cn("flex items-center gap-2 px-3 py-3", collapsed ? "flex-col" : "justify-between")}>
-        {collapsed ? (
-          <>
-            <Link href="/projects" className="flex items-center justify-center">
-              <Image
-                src="/logo.png"
-                alt="Laude Design"
-                width={36}
-                height={36}
-                className="size-9 shrink-0"
-                priority
-              />
-            </Link>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={toggleSidebar}
-                  aria-label="Expand sidebar"
-                >
-                  <ChevronsRight className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Expand</TooltipContent>
-            </Tooltip>
-          </>
-        ) : (
-          <>
-            <Link href="/projects" className="flex items-center gap-2 px-1">
-              <Image
-                src="/logo.png"
-                alt="Laude Design"
-                width={36}
-                height={36}
-                className="size-9 shrink-0"
-                priority
-              />
-              <span className="text-sm font-semibold tracking-tight">Laude Design</span>
-            </Link>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={toggleSidebar}
-                  aria-label="Collapse sidebar"
-                >
-                  <ChevronsLeft className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Collapse</TooltipContent>
-            </Tooltip>
-          </>
-        )}
+      <div className="flex items-center gap-2 px-3 py-3">
+        <Link
+          href="/projects"
+          className="flex min-w-0 flex-1 items-center gap-2"
+        >
+          <Image
+            src="/logo.png"
+            alt="Laude Design"
+            width={36}
+            height={36}
+            className="size-9 shrink-0"
+            priority
+          />
+          <span
+            style={{ transitionTimingFunction: EASE }}
+            className={cn(
+              "overflow-hidden whitespace-nowrap text-sm font-semibold tracking-tight text-ink transition-[max-width,opacity,transform]",
+              DURATION,
+              collapsed
+                ? "pointer-events-none max-w-0 -translate-x-1 opacity-0"
+                : "max-w-[160px] translate-x-0 opacity-100",
+            )}
+            aria-hidden={collapsed}
+          >
+            Laude Design
+          </span>
+        </Link>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-2 py-2">
@@ -114,24 +87,26 @@ export function AppSidebar({ user }: AppSidebarProps) {
                 <Link
                   href={href}
                   className={cn(
-                    "group flex items-center rounded-md py-2 text-sm font-medium transition-colors",
-                    collapsed ? "justify-center px-2" : "gap-3 px-2",
+                    "group flex items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-colors",
                     active
-                      ? "bg-primary/40 text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "bg-brand/40 text-ink"
+                      : "text-ink-muted hover:bg-surface-sunken hover:text-ink",
                   )}
                 >
                   <Icon className="size-4 shrink-0" />
-                  {!collapsed ? (
-                    <span
-                      className={cn(
-                        "truncate",
-                        active && "underline decoration-foreground/30 underline-offset-4",
-                      )}
-                    >
-                      {label}
-                    </span>
-                  ) : null}
+                  <span
+                    style={{ transitionTimingFunction: EASE }}
+                    className={cn(
+                      "overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform]",
+                      DURATION,
+                      collapsed
+                        ? "pointer-events-none max-w-0 -translate-x-1 opacity-0"
+                        : "max-w-[160px] translate-x-0 opacity-100",
+                    )}
+                    aria-hidden={collapsed}
+                  >
+                    {label}
+                  </span>
                 </Link>
               </TooltipTrigger>
               {collapsed ? <TooltipContent side="right">{label}</TooltipContent> : null}
@@ -140,19 +115,29 @@ export function AppSidebar({ user }: AppSidebarProps) {
         })}
       </nav>
 
-      <div className="border-t border-border p-3">
-        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <Avatar className="size-9">
-            {user.image ? <AvatarImage src={user.image} alt={user.name ?? ""} /> : null}
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
-          {!collapsed ? (
-            <div className="min-w-0 leading-tight">
-              <div className="truncate text-sm font-medium">{workspaceLabel}</div>
-              <div className="truncate text-xs text-muted-foreground">workspace</div>
-            </div>
-          ) : null}
-        </div>
+      <div className="flex justify-start px-3 py-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <IconButton
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={toggleSidebar}
+              icon={
+                <ChevronsLeft
+                  style={{ transitionTimingFunction: EASE }}
+                  className={cn(
+                    "size-4 transition-transform",
+                    DURATION,
+                    collapsed && "rotate-180",
+                  )}
+                />
+              }
+            />
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {collapsed ? "Expand" : "Collapse"}
+            <span className="ml-2 text-ink-muted">⌘B</span>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </aside>
   );

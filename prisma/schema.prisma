@@ -17,11 +17,12 @@ model User {
   image         String?
   workspaceName String?
 
-  accounts Account[]
-  sessions Session[]
-  projects Project[]
-  apiKeys  ApiKey[]
-  skills   Skill[]
+  accounts   Account[]
+  sessions   Session[]
+  projects   Project[]
+  apiKeys    ApiKey[]
+  skills     Skill[]
+  skillLikes SkillLike[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -77,7 +78,6 @@ model ApiKey {
   provider   AiProvider
   ciphertext String     @db.Text
   lastFour   String
-  label      String?
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
@@ -93,24 +93,183 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions       ChatSession[]
+  folders        Folder[]
+  designs        Design[]
+  skillOverrides ProjectSkillOverride[]
 
   @@index([userId, updatedAt])
 }
 
-model Skill {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  description String?
-  content     String   @db.Text
-  isPublic    Boolean  @default(false)
-  downloads   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model ChatSession {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String   @default("Session 1")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Rolling summary of conversation prefix that has been folded out of the
+  // live message window. See `src/lib/ai/context-summarizer.ts`.
+  rollingSummary String?
+
+  // Cumulative usage stats for the chatbox circle indicator. All updated
+  // atomically in the chat route's stream-finish handler. Cost is computed
+  // from a static pricing table (see `src/lib/ai/pricing.ts`); auxiliary
+  // model calls (titler, summarizer) are intentionally excluded.
+  cumulativeInputTokens  Int   @default(0)
+  cumulativeOutputTokens Int   @default(0)
+  summarizedCount        Int   @default(0)
+  totalCostUsd           Float @default(0)
+
+  project       Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages      Message[]
+  questionSets  ClarifyingQuestionSet[]
+  designPlans   DesignPlan[]
+
+  @@index([projectId, updatedAt])
+}
+
+enum DesignPlanStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+model DesignPlan {
+  id          String           @id @default(cuid())
+  sessionId   String
+  title       String
+  // Array of { id: string; label: string; completed: boolean } in declared order.
+  steps       Json
+  status      DesignPlanStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  completedAt DateTime?
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, status, createdAt])
+}
+
+enum ClarifyingQuestionStatus {
+  OPEN
+  ANSWERED
+  DISMISSED
+}
+
+model ClarifyingQuestionSet {
+  id         String                   @id @default(cuid())
+  sessionId  String
+  questions  Json
+  answers    Json?
+  status     ClarifyingQuestionStatus @default(OPEN)
+  createdAt  DateTime                 @default(now())
+  answeredAt DateTime?
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, status, createdAt])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  sessionId   String
+  role        String
+  parts       Json
+  attachments Json?
+  createdAt   DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  projectId String
+  parentId  String?
+  name      String
+  createdAt DateTime @default(now())
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("FolderTree")
+  designs  Design[]
+
+  @@index([projectId, parentId])
+}
+
+model Design {
+  id        String   @id @default(cuid())
+  projectId String
+  folderId  String?
+  name      String   @default("Untitled design")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  folder  Folder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  files   DesignFile[]
+
+  @@index([projectId, updatedAt])
+}
+
+model DesignFile {
+  id        String   @id @default(cuid())
+  designId  String
+  path      String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  design Design @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  @@unique([designId, path])
+}
+
+model Skill {
+  id               String   @id @default(cuid())
+  userId           String
+  name             String
+  description      String?
+  content          String   @db.Text
+  isPublic         Boolean  @default(false)
+  appliedByDefault Boolean  @default(true)
+  downloads        Int      @default(0)
+  likes            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likedBy   SkillLike[]
+  overrides ProjectSkillOverride[]
 
   @@index([userId, updatedAt])
   @@index([isPublic])
+}
+
+model ProjectSkillOverride {
+  projectId String
+  skillId   String
+  applied   Boolean
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, skillId])
+  @@index([projectId])
+}
+
+model SkillLike {
+  skillId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([skillId, userId])
+  @@index([userId])
 }
