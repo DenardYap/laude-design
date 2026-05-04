@@ -1,10 +1,9 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef } from 'react';
-import type { RefObject } from 'react';
-
+import { forwardRef, useImperativeHandle, useRef } from "react";
+import type { RefObject } from "react";
 import { Paperclip, SendHorizonal, Square } from "lucide-react";
-import type { FileUIPart, UIMessagePart, UIDataTypes, UITools } from "ai";
+import type { FileUIPart } from "ai";
 
 import {
   IconButton,
@@ -24,33 +23,19 @@ import { ModelPicker } from "@/components/workspace/chat/model-picker";
 import { SelfCritiqueToggle } from "@/components/workspace/chat/self-critique-toggle";
 import { TagChip } from "@/components/workspace/chat/tag-chip";
 import { AttachmentChip } from "@/components/workspace/chat/attachment-chip";
-import type { ApiKeySummary } from "@/lib/workspace/types";
 import {
   buildScreenshotContextNote,
   buildSketchContextNote,
 } from "@/lib/workspace/internal-notes";
 import { buildTagMarker } from "@/lib/workspace/tag-markers";
+import type {
+  ComposerHandle,
+  ComposerProps,
+  ComposerSendParts,
+  ComposerToolbarProps,
+} from "@/components/workspace/chat/types/composer";
 
-export type ComposerSendParts = UIMessagePart<UIDataTypes, UITools>[];
-
-interface ComposerProps {
-  projectId: string;
-  sessionId: string;
-  apiKeys: ApiKeySummary[];
-  /** True while a turn is in flight (submitted or streaming). Disables Send / Enter. */
-  streaming: boolean;
-  onSend: (parts: ComposerSendParts) => void;
-  /** Abort the in-flight turn. Required when `streaming` is true. */
-  onStop: () => void;
-  /** Upload handler provided by the parent panel. */
-  uploadFiles: (files: File[]) => void;
-  /** True while any upload is in flight. */
-  uploadPending: boolean;
-}
-
-export interface ComposerHandle {
-  focus: () => void;
-}
+export type { ComposerSendParts, ComposerHandle };
 
 // Heuristic: most mobile browsers report `(pointer: coarse)` and don't have
 // a physical keyboard attached, so an Enter press there is almost always the
@@ -62,23 +47,21 @@ const isLikelyOnScreenKeyboard = (): boolean => {
 };
 
 // ---------------------------------------------------------------------------
-// ComposerAttachmentsStrip — pending tags and file chips
+// ComposerAttachmentsStrip — reads directly from store; no prop drilling
 // ---------------------------------------------------------------------------
 
-function ComposerAttachmentsStrip({
-  sessionId,
-  pendingTags,
-  pending,
-  onRemoveTag,
-  onRemoveAttachment,
-}: {
-  sessionId: string;
-  pendingTags: ReturnType<typeof useWorkspaceStore.getState>["pendingTagsBySession"][string];
-  pending: UploadedFile[];
-  onRemoveTag: (id: string) => void;
-  onRemoveAttachment: (url: string) => void;
-}) {
+function ComposerAttachmentsStrip({ sessionId }: { sessionId: string }) {
+  const pending = useWorkspaceStore(
+    (s) => s.pendingAttachmentsBySession[sessionId] ?? EMPTY_ATTACHMENTS,
+  );
+  const pendingTags = useWorkspaceStore(
+    (s) => s.pendingTagsBySession[sessionId] ?? EMPTY_TAGS,
+  );
+  const removeAttachment = useWorkspaceStore((s) => s.removePendingAttachment);
+  const removeTag = useWorkspaceStore((s) => s.removePendingTag);
+
   if (pending.length === 0 && pendingTags.length === 0) return null;
+
   return (
     <div className="scrollbar-hide max-h-[120px] overflow-y-auto px-2 pt-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -86,14 +69,14 @@ function ComposerAttachmentsStrip({
           <TagChip
             key={t.id}
             tag={t}
-            onRemove={() => onRemoveTag(t.id)}
+            onRemove={() => removeTag(sessionId, t.id)}
           />
         ))}
         {pending.map((a: UploadedFile) => (
           <AttachmentChip
             key={a.url}
             file={a}
-            onRemove={() => onRemoveAttachment(a.url)}
+            onRemove={() => removeAttachment(sessionId, a.url)}
           />
         ))}
       </div>
@@ -102,30 +85,32 @@ function ComposerAttachmentsStrip({
 }
 
 // ---------------------------------------------------------------------------
-// ComposerToolbar — bottom row: usage, model picker, attach, stop/send
+// ComposerToolbar — reads streaming/canSend/stop directly from store
 // ---------------------------------------------------------------------------
 
 function ComposerToolbar({
   projectId,
   sessionId,
   apiKeys,
-  streaming,
   uploadPending,
-  canSend,
   fileInputRef,
-  onStop,
   onSend,
-}: {
-  projectId: string;
-  sessionId: string;
-  apiKeys: ApiKeySummary[];
-  streaming: boolean;
-  uploadPending: boolean;
-  canSend: boolean;
-  fileInputRef: RefObject<HTMLInputElement | null>;
-  onStop: () => void;
-  onSend: () => void;
-}) {
+}: ComposerToolbarProps) {
+  const streaming = useWorkspaceStore(
+    (s) => Boolean(s.streamingSessionIds[sessionId]),
+  );
+  const draft = useWorkspaceStore((s) => s.draftBySession[sessionId] ?? "");
+  const pending = useWorkspaceStore(
+    (s) => s.pendingAttachmentsBySession[sessionId] ?? EMPTY_ATTACHMENTS,
+  );
+  const pendingTags = useWorkspaceStore(
+    (s) => s.pendingTagsBySession[sessionId] ?? EMPTY_TAGS,
+  );
+  const requestSessionStop = useWorkspaceStore((s) => s.requestSessionStop);
+
+  const canSend =
+    draft.trim().length > 0 || pending.length > 0 || pendingTags.length > 0;
+
   return (
     <div className="flex flex-wrap items-center gap-1 px-2 pb-2">
       <ContextUsageIndicator projectId={projectId} sessionId={sessionId} />
@@ -151,7 +136,7 @@ function ComposerToolbar({
                 variant="primary"
                 className="size-8 rounded-full sm:size-7"
                 icon={<Square className="size-3 fill-current" />}
-                onClick={onStop}
+                onClick={() => requestSessionStop(sessionId)}
               />
             </TooltipTrigger>
             <TooltipContent side="top">Stop generating</TooltipContent>
@@ -177,16 +162,7 @@ function ComposerToolbar({
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(
   function Composer(
-    {
-      projectId,
-      sessionId,
-      apiKeys,
-      streaming,
-      onSend,
-      onStop,
-      uploadFiles,
-      uploadPending,
-    },
+    { projectId, sessionId, apiKeys, onSend, uploadFiles, uploadPending },
     ref,
   ) {
     const draft = useWorkspaceStore((s) => s.draftBySession[sessionId] ?? "");
@@ -194,13 +170,14 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
     const pending = useWorkspaceStore(
       (s) => s.pendingAttachmentsBySession[sessionId] ?? EMPTY_ATTACHMENTS,
     );
-    const removeAttachment = useWorkspaceStore((s) => s.removePendingAttachment);
     const clearAttachments = useWorkspaceStore((s) => s.clearPendingAttachments);
     const pendingTags = useWorkspaceStore(
       (s) => s.pendingTagsBySession[sessionId] ?? EMPTY_TAGS,
     );
-    const removeTag = useWorkspaceStore((s) => s.removePendingTag);
     const clearTags = useWorkspaceStore((s) => s.clearPendingTags);
+    const streaming = useWorkspaceStore(
+      (s) => Boolean(s.streamingSessionIds[sessionId]),
+    );
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -221,7 +198,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
         filename: a.name,
       }));
 
-      const screenshotCount = pending.filter((a) => a.kind === "screenshot").length;
+      const screenshotCount = pending.filter(
+        (a) => a.kind === "screenshot",
+      ).length;
       const sketchCount = pending.filter((a) => a.kind === "sketch").length;
       const screenshotNote = buildScreenshotContextNote(screenshotCount);
       const sketchNote = buildSketchContextNote(sketchCount);
@@ -244,21 +223,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       clearTags(sessionId);
     }
 
-    const canSend =
-      draft.trim().length > 0 ||
-      pending.length > 0 ||
-      pendingTags.length > 0;
-
     return (
       <div className="px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-3 sm:pb-3">
         <div className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm transition-colors">
-          <ComposerAttachmentsStrip
-            sessionId={sessionId}
-            pendingTags={pendingTags}
-            pending={pending}
-            onRemoveTag={(id) => removeTag(sessionId, id)}
-            onRemoveAttachment={(url) => removeAttachment(sessionId, url)}
-          />
+          <ComposerAttachmentsStrip sessionId={sessionId} />
 
           <Textarea
             ref={textareaRef}
@@ -280,7 +248,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           />
 
           <input
-            ref={fileInputRef}
+            ref={fileInputRef as RefObject<HTMLInputElement>}
             type="file"
             multiple
             hidden
@@ -294,11 +262,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
             projectId={projectId}
             sessionId={sessionId}
             apiKeys={apiKeys}
-            streaming={streaming}
             uploadPending={uploadPending}
-            canSend={canSend}
             fileInputRef={fileInputRef}
-            onStop={onStop}
             onSend={handleSend}
           />
         </div>

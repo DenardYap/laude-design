@@ -10,13 +10,13 @@ import {
 import {
   findSandpackIframe,
   requestIframeScreenshot,
-} from "@/components/workspace/canvas/iframe-screenshot";
+} from "@/components/workspace/canvas/utils/iframe-screenshot";
 import {
   buildScreenshotFilename,
   cssAttrEscape,
   isValidPngDataUrl,
   isVisibleCanvasOnDesign,
-} from "@/components/workspace/canvas/capture-design-helpers";
+} from "@/components/workspace/canvas/utils/capture-design-helpers";
 
 export interface CaptureDesignOptions {
   projectId: string;

@@ -1,13 +1,7 @@
 "use client";
 
 import { BrushMark, IconBadge } from "@/components/ui";
-
-interface EmptyCanvasProps {
-  /** Override the default invitation copy. Used by `DesignRenderer` to render
-   * the "design exists but has no files yet" variant with a slightly more
-   * action-oriented prompt. */
-  message?: string;
-}
+import type { EmptyCanvasProps } from "@/components/workspace/canvas/types/misc";
 
 export function EmptyCanvas({
   message = "Start painting with your agent",

@@ -15,15 +15,7 @@ import {
 } from "@/components/ui";
 import { getInitials } from "@/lib/utils";
 import { signOutAction } from "@/server/actions/auth";
-
-interface UserMenuProps {
-  user: {
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-  };
-  size?: "sm" | "md";
-}
+import type { UserMenuProps } from "@/components/layout/types/layout";
 
 export function UserMenu({ user, size = "md" }: UserMenuProps) {
   const initials = getInitials(user.name, user.email);

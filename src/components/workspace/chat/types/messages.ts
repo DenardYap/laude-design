@@ -16,7 +16,6 @@ export interface ChatPaneProps {
 export interface ActiveSessionLoaderProps {
   projectId: string;
   sessionId: string;
-  active: boolean;
 }
 
 export interface ActiveSessionProps {

@@ -24,17 +24,17 @@ import {
   CanvasHeader,
 } from "@/components/workspace/canvas/canvas-pane";
 import { SessionTabs } from "@/components/workspace/chat/session-tabs";
-import { useCanvasScreenshot } from "@/components/workspace/canvas/use-screenshot";
+import { useCanvasScreenshot } from "@/components/workspace/canvas/hooks/use-screenshot";
 import { ScreenshotAreaOverlay } from "@/components/workspace/canvas/screenshot-area-overlay";
 import { ScreenshotHost } from "@/components/workspace/canvas/screenshot-host";
 import { DrawingShapeBar } from "@/components/workspace/canvas/drawing/drawing-shape-bar";
-import { useDrawingSend } from "@/components/workspace/canvas/drawing/use-drawing-send";
-import { useExitDrawing } from "@/components/workspace/canvas/drawing/use-exit-drawing";
+import { useDrawingSend } from "@/components/workspace/canvas/drawing/hooks/use-drawing-send";
+import { useExitDrawing } from "@/components/workspace/canvas/drawing/hooks/use-exit-drawing";
 import { ConfirmDialog } from "@/components/ui";
 import { WorkspaceHeader } from "@/components/workspace/workspace-header";
 import { CommandPalette } from "@/components/workspace/command-palette/command-palette";
 import { ExportToAgentDialog } from "@/components/workspace/export/export-to-agent-dialog";
-import { useCmdKShortcut } from "@/components/workspace/command-palette/use-cmd-k-shortcut";
+import { useCmdKShortcut } from "@/components/workspace/command-palette/hooks/use-cmd-k-shortcut";
 import { useIsDesktop } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
@@ -74,8 +74,6 @@ export function ProjectWorkspace({
   allProjects,
   ssrIsDesktop,
 }: ProjectWorkspaceProps) {
-  const rawChatPanelSize = useWorkspaceStore((s) => s.chatPanelSize);
-  const setChatPanelSize = useWorkspaceStore((s) => s.setChatPanelSize);
   const hydrateSessionUsage = useWorkspaceStore((s) => s.hydrateSessionUsage);
   const addRecent = useRecentsStore((s) => s.addRecent);
 
@@ -150,13 +148,6 @@ export function ProjectWorkspace({
   useEffect(() => {
     addRecent({ kind: "project", id: project.id, name: project.name });
   }, [project.id, project.name, addRecent]);
-  // Guard against corrupted persisted values. Clamp to the allowed [25, 50] range.
-  const chatPanelPercent =
-    typeof rawChatPanelSize === "number" &&
-    isFinite(rawChatPanelSize) &&
-    rawChatPanelSize > 0
-      ? Math.min(50, Math.max(25, rawChatPanelSize))
-      : 30;
   useCmdKShortcut();
 
   // Capture target lives in the canvas body, but the screenshot button lives
@@ -170,14 +161,6 @@ export function ProjectWorkspace({
   const screenshot = useCanvasScreenshot(project.id, captureRef);
   const drawingSend = useDrawingSend(project.id, viewportRef, captureRef);
   const exitDrawing = useExitDrawing(project.id);
-
-  const canvasPanelPercent = 100 - chatPanelPercent;
-
-  // Closing every tab is a valid empty state, so we don't fall back to
-  // sessions[0] here. The session-tabs component handles first-visit hydration.
-  const activeSessionId = useWorkspaceStore(
-    (s) => s.activeSessionByProject[project.id],
-  );
 
   // Tracks which pane fills the mobile viewport. Local state because it's
   // ephemeral — there's no value in persisting it across reloads, and the
@@ -205,7 +188,6 @@ export function ProjectWorkspace({
         <SessionTabs
           projectId={project.id}
           sessions={sessions}
-          activeSessionId={activeSessionId}
         />
       </div>
       <div className="min-h-0 flex-1">
@@ -249,15 +231,11 @@ export function ProjectWorkspace({
       {isDesktop ? (
         <DesktopLayout
           projectId={project.id}
-          chatPanelPercent={chatPanelPercent}
-          canvasPanelPercent={canvasPanelPercent}
-          onResizeChat={setChatPanelSize}
           sessionsPane={
             <div className="min-w-0 bg-surface">
               <SessionTabs
                 projectId={project.id}
                 sessions={sessions}
-                activeSessionId={activeSessionId}
               />
             </div>
           }
@@ -343,9 +321,6 @@ export function ProjectWorkspace({
 
 interface DesktopLayoutProps {
   projectId: string;
-  chatPanelPercent: number;
-  canvasPanelPercent: number;
-  onResizeChat: (size: number) => void;
   sessionsPane: ReactNode;
   canvasHeader: ReactNode;
   chatBody: ReactNode;
@@ -354,14 +329,22 @@ interface DesktopLayoutProps {
 
 function DesktopLayout({
   projectId,
-  chatPanelPercent,
-  canvasPanelPercent,
-  onResizeChat,
   sessionsPane,
   canvasHeader,
   chatBody,
   canvasBody,
 }: DesktopLayoutProps) {
+  const rawChatPanelSize = useWorkspaceStore((s) => s.chatPanelSize);
+  const setChatPanelSize = useWorkspaceStore((s) => s.setChatPanelSize);
+  // Guard against corrupted persisted values. Clamp to the allowed [25, 50] range.
+  const chatPanelPercent =
+    typeof rawChatPanelSize === "number" &&
+    isFinite(rawChatPanelSize) &&
+    rawChatPanelSize > 0
+      ? Math.min(50, Math.max(25, rawChatPanelSize))
+      : 30;
+  const canvasPanelPercent = 100 - chatPanelPercent;
+
   // `defaultSize` must be stable across renders. `react-resizable-panels` v4
   // includes it in the Panel's useLayoutEffect deps, so feeding back the live
   // store value (which `onResize` updates on every pointer move) would
@@ -393,7 +376,7 @@ function DesktopLayout({
           defaultSize={`${initialChatPanelPercent}%`}
           minSize="25%"
           maxSize="50%"
-          onResize={(size) => onResizeChat(size.asPercentage)}
+          onResize={(size) => setChatPanelSize(size.asPercentage)}
           className="flex min-w-0 flex-col bg-surface"
         >
           {chatBody}

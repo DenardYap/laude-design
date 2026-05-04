@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { cn } from "@/lib/utils";
-
-type Phase = "loading" | "fading" | "hidden";
+import { BrushStrokeLoader } from "@/components/workspace/canvas/brush-stroke-loader";
+import type { Phase, CanvasLoadingOverlayProps } from "@/components/workspace/canvas/types/canvas-loading-overlay";
 
 const FADE_MS = 280;
 // Minimum on-screen time so the overlay doesn't flash for fast bundles.
@@ -12,16 +12,6 @@ const MIN_VISIBLE_MS = 600;
 // Hard ceiling — even if Sandpack never signals ready (slow network, timeout)
 // we always get out of the user's way after this long.
 const MAX_VISIBLE_MS = 12_000;
-
-interface CanvasLoadingOverlayProps {
-  /**
-   * Set to true once the canvas is compiled and ready to show. When this
-   * flips to true the overlay begins its two-phase fade out. When the
-   * component remounts (via a key change) it always starts in the "loading"
-   * phase regardless of this prop.
-   */
-  ready?: boolean;
-}
 
 /**
  * Sits over the Sandpack iframe area while a freshly-mounted or recently-
@@ -96,41 +86,3 @@ export function CanvasLoadingOverlay({ ready = false }: CanvasLoadingOverlayProp
   );
 }
 
-/**
- * A brush stroke that paints itself in along an organic curve, then sweeps
- * off the canvas in the same direction — a continuous, unbroken motion
- * (no opacity reset, no jarring snap-back). The leading "wet paint" tip
- * follows the curve via `offset-path` and disappears once the stroke is
- * fully laid down.
- *
- * Path coords are normalised to a 120×60 viewBox; `pathLength="100"` lets
- * the dasharray/dashoffset math live in CSS as plain percentages.
- */
-function BrushStrokeLoader() {
-  const curve = "M14 42 Q40 8 60 30 T106 22";
-  return (
-    <svg
-      viewBox="0 0 120 60"
-      fill="none"
-      aria-hidden="true"
-      className="h-16 w-32 text-brand-hover"
-    >
-      <path
-        d={curve}
-        stroke="currentColor"
-        strokeWidth={9}
-        strokeLinecap="round"
-        pathLength={100}
-        className="paint-loader-stroke"
-      />
-      <circle
-        cx={0}
-        cy={0}
-        r={4}
-        fill="hsl(var(--brand-foreground))"
-        className="paint-loader-brush"
-        style={{ offsetPath: `path("${curve}")` }}
-      />
-    </svg>
-  );
-}

@@ -1,10 +1,6 @@
-import { FolderKanban, KeyRound, Wand2, type LucideIcon } from "lucide-react";
+import { FolderKanban, KeyRound, Wand2 } from "lucide-react";
 
-export interface NavPage {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-}
+import type { NavPage } from "@/components/layout/types/layout";
 
 /**
  * Pages that appear in the global command palette's "Go to" group. This list

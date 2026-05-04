@@ -1,20 +1,16 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import * as React from "react";
 import { Check, Copy, Download } from "lucide-react";
 import { toast } from "sonner";
 
-import type { DesignDTO } from "@/lib/workspace/types";
 import { Button, Textarea } from "@/components/ui";
-import { buildExportPrompt } from "@/components/workspace/export/build-export-prompt";
-
-interface PromptExportTabProps {
-  design: DesignDTO;
-}
+import { buildExportPrompt } from "@/components/workspace/export/utils/build-export-prompt";
+import type { PromptExportTabProps } from "@/components/workspace/export/types/export";
 
 export function PromptExportTab({ design }: PromptExportTabProps) {
-  const text = useMemo(() => buildExportPrompt({ design }), [design]);
-  const [copied, setCopied] = useState(false);
+  const text = React.useMemo(() => buildExportPrompt({ design }), [design]);
+  const [copied, setCopied] = React.useState(false);
 
   async function copy() {
     await navigator.clipboard.writeText(text);
@@ -37,7 +33,7 @@ export function PromptExportTab({ design }: PromptExportTabProps) {
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-ink-muted">
           Give you coding agents like Cursor a pointer on how to recreate this
-          design.
+          design.T
         </p>
         <div className="flex items-center gap-1">
           <Button

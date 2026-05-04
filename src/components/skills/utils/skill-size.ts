@@ -1,13 +1,5 @@
 import { estimateTokens } from "@/lib/utils";
-
-/**
- * Coarse token buckets used by the Tokens filter on both Skills tabs. We
- * estimate tokens from char count using the 4-chars-per-token heuristic so
- * labels stay meaningful regardless of whether the underlying file is
- * markdown or plain text. (Real tokenization varies by model; this is a
- * surface-level UI hint, not an authoritative count.)
- */
-export type SkillSizeBucket = "small" | "medium" | "large";
+import type { SkillSizeBucket } from "@/components/skills/types/skills";
 
 export const SKILL_SIZE_OPTIONS: Array<{ value: SkillSizeBucket; label: string }> = [
   { value: "small", label: "Small (<1k tokens)" },

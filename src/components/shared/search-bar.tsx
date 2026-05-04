@@ -3,14 +3,9 @@
 import { Search, X } from "lucide-react";
 
 import { Input } from "@/components/ui";
-import { useScopeQuery, type FilterScope } from "@/stores/filters-store";
+import { useScopeQuery } from "@/stores/filters-store";
 import { cn } from "@/lib/utils";
-
-interface SearchBarProps {
-  scope: FilterScope;
-  placeholder?: string;
-  className?: string;
-}
+import type { SearchBarProps } from "@/components/shared/types/search-bar";
 
 export function SearchBar({ scope, placeholder = "Search...", className }: SearchBarProps) {
   const { query, setQuery } = useScopeQuery(scope);

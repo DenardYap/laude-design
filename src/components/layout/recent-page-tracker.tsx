@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
-import { getNavPage } from "@/components/layout/nav-pages";
+import { getNavPage } from "@/components/layout/utils/nav-pages";
 import { useRecentsStore } from "@/stores/recents-store";
 
 /**

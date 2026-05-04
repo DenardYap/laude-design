@@ -6,22 +6,17 @@ import { Check, X } from "lucide-react";
 
 import { Button } from "@/components/ui";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-import type {
-  AnswerValue,
-  ClarifyingQuestionItem,
-  ClarifyingQuestionSetDTO,
-} from "@/app/api/sessions/[sessionId]/questions/route";
+import type { AnswerValue } from "@/app/api/sessions/[sessionId]/questions/route";
 import {
   QuestionBlock,
   allAnswered,
   synthesizeAnswerMessage,
   synthesizeSkipMessage,
 } from "@/components/workspace/chat/questions-pane";
-
-interface QuestionSetBodyProps {
-  sessionId: string;
-  set: ClarifyingQuestionSetDTO;
-}
+import type {
+  QuestionSetBodyProps,
+  ReadOnlyBodyProps,
+} from "@/components/workspace/chat/types/questions";
 
 export function QuestionSetBody({ sessionId, set }: QuestionSetBodyProps) {
   const items = set.questions.items;
@@ -122,7 +117,7 @@ export function QuestionSetBody({ sessionId, set }: QuestionSetBodyProps) {
 // placeholders. As soon as the input finishes streaming and the tool's
 // `execute` resolves, the parent re-renders with `set` populated and
 // `QuestionSetBody` takes over.
-export function ReadOnlyBody({ items }: { items: ClarifyingQuestionItem[] }) {
+export function ReadOnlyBody({ items }: ReadOnlyBodyProps) {
   return (
     <div className="flex flex-col gap-4">
       {items.map((q) => (

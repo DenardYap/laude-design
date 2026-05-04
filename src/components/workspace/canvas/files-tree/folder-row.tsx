@@ -41,14 +41,7 @@ import { createDesign, moveDesign } from "@/server/actions/designs";
 import { FolderChildren } from "./folder-children";
 import { InlineRenameInput } from "@/components/shared/inline-rename-input";
 import { collectDescendants, isDescendantOf } from "./utils";
-
-interface FolderRowProps {
-  projectId: string;
-  folder: FolderDTO;
-  folders: FolderDTO[];
-  designs: DesignDTO[];
-  depth: number;
-}
+import type { FolderRowProps } from "@/components/workspace/canvas/files-tree/types/files-tree";
 
 export function FolderRow({ projectId, folder, folders, designs, depth }: FolderRowProps) {
   const router = useRouter();

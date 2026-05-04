@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from 'react';
-import type { WheelEvent } from 'react';
+import { useCallback, useEffect, useState } from "react";
+import type { WheelEvent } from "react";
 
 import { Minus, Plus, X } from "lucide-react";
 
@@ -11,6 +11,10 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui";
+import type {
+  ImageViewportProps,
+  ZoomToolbarProps,
+} from "@/components/workspace/chat/types/image-preview";
 
 const IMG_ZOOM_STEP = 0.25;
 const IMG_ZOOM_MIN = 0.25;
@@ -23,15 +27,6 @@ const clamp = (z: number) => Math.min(IMG_ZOOM_MAX, Math.max(IMG_ZOOM_MIN, z));
 // ---------------------------------------------------------------------------
 // ImageViewport — scrollable container + the actual <img>
 // ---------------------------------------------------------------------------
-
-interface ImageViewportProps {
-  url: string;
-  name: string;
-  zoom: number;
-  naturalHeight: number | null;
-  onNaturalHeightLoad: (height: number) => void;
-  onWheel: (e: WheelEvent) => void;
-}
 
 function ImageViewport({
   url,
@@ -71,11 +66,6 @@ function ImageViewport({
 // ---------------------------------------------------------------------------
 // ZoomToolbar — zoom controls + close button
 // ---------------------------------------------------------------------------
-
-interface ZoomToolbarProps {
-  zoom: number;
-  onZoomChange: (z: number) => void;
-}
 
 function ZoomToolbar({ zoom, onZoomChange }: ZoomToolbarProps) {
   return (
@@ -143,7 +133,7 @@ export function ImagePreviewDialog({
     }
   }, [open]);
 
-  const handleWheel = useCallback((e: WheelEvent) => {
+  const handleWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     setZoom((z) => clamp(z - e.deltaY * 0.001));
   }, []);

@@ -1,10 +1,7 @@
 "use client";
 
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-
 import { match } from "ts-pattern";
 
-import { cn } from "@/lib/utils";
 import {
   selectStyle,
   selectTool,
@@ -14,15 +11,13 @@ import {
   type Sloppiness,
   type StrokeStyle,
 } from "@/stores/drawing-store";
+import { DrawingSection } from "@/components/workspace/canvas/drawing/drawing-section";
+import { SwatchRow } from "@/components/workspace/canvas/drawing/swatch-row";
+import { StyleChip } from "@/components/workspace/canvas/drawing/style-chip";
+import { SloppinessGlyph } from "@/components/workspace/canvas/drawing/sloppiness-glyph";
+import type { DrawingStyleControlsProps } from "@/components/workspace/canvas/drawing/types/drawing-style-controls";
 
-interface DrawingStyleControlsProps {
-  projectId: string;
-}
-
-// Hand-picked palette tuned against the warm cream canvas. Excalidraw's
-// classic five (red/green/blue/orange/black) plus a brand-match warm yellow
-// so freshly-applied marks read as "drawn on top" rather than "part of the
-// design".
+// Hand-picked palette tuned against the warm cream canvas.
 const STROKE_SWATCHES = [
   { value: "#1f2937", label: "Slate" },
   { value: "#e03131", label: "Red" },
@@ -85,26 +80,26 @@ export function DrawingStyleControls({ projectId }: DrawingStyleControlsProps) {
 
   return (
     <div className="space-y-4">
-      <Section label="Stroke">
+      <DrawingSection label="Stroke">
         <SwatchRow
           options={STROKE_SWATCHES}
           value={style.strokeColor}
           onSelect={(v) => apply({ strokeColor: v })}
         />
-      </Section>
+      </DrawingSection>
 
-      <Section label="Background">
+      <DrawingSection label="Background">
         <SwatchRow
           options={FILL_SWATCHES}
           value={style.backgroundColor}
           onSelect={(v) => apply({ backgroundColor: v })}
         />
-      </Section>
+      </DrawingSection>
 
-      <Section label="Stroke width">
+      <DrawingSection label="Stroke width">
         <div className="flex gap-1.5">
           {STROKE_WIDTHS.map((w) => (
-            <Chip
+            <StyleChip
               key={w.value}
               active={style.strokeWidth === w.value}
               onClick={() => apply({ strokeWidth: w.value })}
@@ -114,15 +109,15 @@ export function DrawingStyleControls({ projectId }: DrawingStyleControlsProps) {
                 className="rounded-full bg-ink"
                 style={{ width: 22, height: w.value + 1 }}
               />
-            </Chip>
+            </StyleChip>
           ))}
         </div>
-      </Section>
+      </DrawingSection>
 
-      <Section label="Stroke style">
+      <DrawingSection label="Stroke style">
         <div className="flex gap-1.5">
           {STROKE_STYLES.map((s) => (
-            <Chip
+            <StyleChip
               key={s.value}
               active={style.strokeStyle === s.value}
               onClick={() => apply({ strokeStyle: s.value })}
@@ -141,49 +136,46 @@ export function DrawingStyleControls({ projectId }: DrawingStyleControlsProps) {
                   }}
                 />
               </div>
-            </Chip>
+            </StyleChip>
           ))}
         </div>
-      </Section>
+      </DrawingSection>
 
-      <Section label="Sloppiness">
+      <DrawingSection label="Sloppiness">
         <div className="flex gap-1.5">
           {SLOPPINESS_OPTIONS.map((s) => (
-            <Chip
+            <StyleChip
               key={s.value}
               active={style.sloppiness === s.value}
               onClick={() => apply({ sloppiness: s.value })}
               aria-label={s.label}
             >
               <SloppinessGlyph kind={s.value} />
-            </Chip>
+            </StyleChip>
           ))}
         </div>
-      </Section>
+      </DrawingSection>
 
       {showEdges ? (
-        <Section label="Edges">
+        <DrawingSection label="Edges">
           <div className="flex gap-1.5">
             {EDGES.map((e) => (
-              <Chip
+              <StyleChip
                 key={e.value}
                 active={style.edges === e.value}
                 onClick={() => apply({ edges: e.value })}
                 aria-label={e.label}
               >
                 <div
-                  className={cn(
-                    "size-4 border-2 border-ink",
-                    e.value === "round" ? "rounded-md" : "rounded-none",
-                  )}
+                  className={`size-4 border-2 border-ink ${e.value === "round" ? "rounded-md" : "rounded-none"}`}
                 />
-              </Chip>
+              </StyleChip>
             ))}
           </div>
-        </Section>
+        </DrawingSection>
       ) : null}
 
-      <Section label={`Opacity · ${style.opacity}%`}>
+      <DrawingSection label={`Opacity · ${style.opacity}%`}>
         <input
           type="range"
           min={10}
@@ -193,108 +185,7 @@ export function DrawingStyleControls({ projectId }: DrawingStyleControlsProps) {
           onChange={(e) => apply({ opacity: Number(e.target.value) })}
           className="h-1 w-full cursor-pointer appearance-none rounded-full bg-surface-sunken accent-brand"
         />
-      </Section>
+      </DrawingSection>
     </div>
-  );
-}
-
-function Section({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-        {label}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function SwatchRow({
-  options,
-  value,
-  onSelect,
-}: {
-  options: { value: string; label: string }[];
-  value: string;
-  onSelect: (v: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((opt) => {
-        const isTransparent = opt.value === "transparent";
-        const selected = value === opt.value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onSelect(opt.value)}
-            aria-label={opt.label}
-            aria-pressed={selected}
-            className={cn(
-              "size-6 rounded-md border border-border transition-shadow",
-              selected && "ring-2 ring-brand ring-offset-1 ring-offset-surface",
-            )}
-            style={{
-              backgroundColor: isTransparent ? undefined : opt.value,
-              backgroundImage: isTransparent
-                ? "linear-gradient(45deg, hsl(var(--surface-sunken)) 25%, transparent 25%, transparent 75%, hsl(var(--surface-sunken)) 75%), linear-gradient(45deg, hsl(var(--surface-sunken)) 25%, transparent 25%, transparent 75%, hsl(var(--surface-sunken)) 75%)"
-                : undefined,
-              backgroundSize: isTransparent ? "8px 8px" : undefined,
-              backgroundPosition: isTransparent ? "0 0, 4px 4px" : undefined,
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-function Chip({
-  active,
-  onClick,
-  children,
-  ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  active?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex h-8 min-w-8 items-center justify-center rounded-md border border-border bg-surface px-2 text-xs text-ink transition-colors hover:bg-surface-sunken",
-        active && "border-brand bg-brand-soft hover:bg-brand-soft",
-      )}
-      {...rest}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** Tiny inline preview of how each sloppiness level renders. */
-function SloppinessGlyph({ kind }: { kind: Sloppiness }) {
-  const d = match(kind)
-    .with("architect", () => "M2 8 L22 8")
-    .with("artist", () => "M2 8 Q7 5 12 8 T22 8")
-    .with("cartoonist", () => "M2 8 Q5 4 9 9 T15 7 T22 9")
-    .exhaustive();
-  return (
-    <svg width="24" height="14" viewBox="0 0 24 14" aria-hidden="true">
-      <path
-        d={d}
-        stroke="hsl(var(--ink))"
-        strokeWidth={1.5}
-        fill="none"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }

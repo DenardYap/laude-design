@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useTransition } from 'react';
+import { useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -12,28 +12,9 @@ import { Button, Input, Label, Pill, Textarea } from "@/components/ui";
 import { SkillUpdateSchema, type SkillUpdateInput } from "@/lib/validators";
 import { updateSkill } from "@/server/actions/skills";
 import { formatRelativeTime, formatSkillSize } from "@/lib/utils";
-import { SkillDetailHeader } from "./skill-detail-header";
-import { SkillDangerActions, SkillSharingPanel } from "./skill-management";
-
-interface MySkillDetailProps {
-  skill: {
-    id: string;
-    name: string;
-    description: string | null;
-    content: string;
-    isPublic: boolean;
-    appliedByDefault: boolean;
-    overrideCount: number;
-    saves: number;
-    likes: number;
-    updatedAt: Date | string;
-    /**
-     * When the skill was added from the public library, points back at the
-     * source so we can show provenance. `null` when the user authored it.
-     */
-    clonedFrom: { id: string; name: string } | null;
-  };
-}
+import { SkillDetailHeader } from "@/components/skills/skill-detail-header";
+import { SkillSharingPanel, SkillDangerActions } from "@/components/skills/skill-management";
+import type { MySkillDetailProps } from "@/components/skills/types/skill-detail";
 
 export function MySkillDetail({ skill }: MySkillDetailProps) {
   const router = useRouter();
@@ -48,9 +29,6 @@ export function MySkillDetail({ skill }: MySkillDetailProps) {
     },
   });
 
-  // Reset the form whenever a fresh server-rendered skill arrives (e.g. after
-  // a router.refresh() following another action). Without this the form would
-  // keep stale "dirty" state and the Save button would mis-render.
   useEffect(() => {
     form.reset({
       name: skill.name,

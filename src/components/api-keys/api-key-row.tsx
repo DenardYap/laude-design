@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from 'react';
-import type { ReactNode } from 'react';
+import { useState, useTransition } from "react";
 
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -18,26 +17,11 @@ import {
   Input,
   Pill,
 } from "@/components/ui";
-import { ApiKeySchema, type ApiKeyInput, type AiProvider } from "@/lib/validators";
+import { ApiKeySchema, type ApiKeyInput } from "@/lib/validators";
 import { deleteApiKey, saveApiKey } from "@/server/actions/api-keys";
+import type { ApiKeyRowProps } from "@/components/api-keys/types/api-keys";
 
-export interface ProviderConfig {
-  provider: AiProvider;
-  /** Display name — what users actually search for (e.g. "Anthropic"). */
-  name: string;
-  placeholder: string;
-  /** Direct URL to the provider's API-key page. Opens in a new tab. */
-  docsUrl: string;
-  /** Friendly name of the destination dashboard ("Anthropic Console", etc). */
-  dashboardLabel: string;
-  /** Brand icon for the provider. */
-  icon: ReactNode;
-}
-
-interface ApiKeyRowProps {
-  config: ProviderConfig;
-  existing?: { lastFour: string; updatedAt: Date | string };
-}
+export type { ProviderConfig } from "@/components/api-keys/types/api-keys";
 
 export function ApiKeyRow({ config, existing }: ApiKeyRowProps) {
   const router = useRouter();

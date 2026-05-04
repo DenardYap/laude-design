@@ -1,17 +1,10 @@
 "use client";
 
-import type { ReactNode } from 'react';
-
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { IconButton } from "@/components/ui";
-
-interface SkillDetailHeaderProps {
-  title: string;
-  subtitle?: ReactNode;
-  actions?: ReactNode;
-}
+import type { SkillDetailHeaderProps } from "@/components/skills/types/skill-detail";
 
 /** Shared header for both owner and public skill detail pages. */
 export function SkillDetailHeader({ title, subtitle, actions }: SkillDetailHeaderProps) {

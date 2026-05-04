@@ -14,7 +14,7 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   findSandpackIframe,
   requestIframeScreenshot,
-} from "@/components/workspace/canvas/iframe-screenshot";
+} from "@/components/workspace/canvas/utils/iframe-screenshot";
 
 const PIXEL_RATIO = 2;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -11,34 +11,8 @@ import { UserMenu } from "@/components/layout/user-menu";
 import { TopbarSearch } from "@/components/layout/topbar-search";
 import { GlobalCommandPalette } from "@/components/layout/global-command-palette";
 import { useUiStore } from "@/stores/ui-store";
-
-const GITHUB_REPO = "DenardYap/laude-design";
-
-function formatStarCount(count: number): string {
-  if (count >= 1000) {
-    const k = count / 1000;
-    return `${k >= 10 ? Math.round(k) : k.toFixed(1)}k`;
-  }
-  return count.toLocaleString();
-}
-
-async function fetchStarCount(): Promise<number> {
-  const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}`);
-  if (!res.ok) throw new Error("Failed to fetch star count");
-  const data = (await res.json()) as { stargazers_count: number };
-  return data.stargazers_count;
-}
-
-interface TopbarProps {
-  user: {
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-  };
-  /** All of the user's projects, freshest first. Powers the command palette's
-   * "Projects" and "Recently used" groups. */
-  projects: { id: string; name: string }[];
-}
+import { GITHUB_REPO, fetchStarCount, formatStarCount } from "@/components/layout/utils/github";
+import type { TopbarProps } from "@/components/layout/types/layout";
 
 export function Topbar({ user, projects }: TopbarProps) {
   const { data: starCount } = useQuery({

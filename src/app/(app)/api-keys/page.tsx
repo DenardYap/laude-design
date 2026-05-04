@@ -4,8 +4,10 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { ApiKeysList } from "@/components/api-keys/api-keys-list";
-import type { ProviderConfig } from "@/components/api-keys/api-key-row";
-import { AnthropicIcon, GoogleIcon, OpenAIIcon } from "@/components/api-keys/provider-icons";
+import type { ProviderConfig } from "@/components/api-keys/types/api-keys";
+import { AnthropicIcon } from "@/components/api-keys/anthropic-icon";
+import { GoogleIcon } from "@/components/api-keys/google-icon";
+import { OpenAIIcon } from "@/components/api-keys/openai-icon";
 import type { AiProvider } from "@/lib/validators";
 
 export const metadata = { title: "Configure API · Laude Design" };

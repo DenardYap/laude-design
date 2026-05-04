@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { UploadCloud } from "lucide-react";
 import { toast } from "sonner";
@@ -43,6 +43,9 @@ export function ChatPane({ projectId, apiKeys, hasSessions = false }: ChatPanePr
   );
   const seedSessionModel = useWorkspaceStore((s) => s.seedSessionModel);
   const addAttachment = useWorkspaceStore((s) => s.addPendingAttachment);
+  const enqueueComposerSubmission = useWorkspaceStore(
+    (s) => s.enqueueComposerSubmission,
+  );
 
   // Seed the model for every open session that doesn't have one yet.
   useEffect(() => {
@@ -56,10 +59,6 @@ export function ChatPane({ projectId, apiKeys, hasSessions = false }: ChatPanePr
   );
 
   const composerSessionId = activeSessionId ?? COMPOSER_NO_SESSION_KEY;
-
-  const isStreaming = useWorkspaceStore((s) =>
-    Boolean(activeSessionId && s.streamingSessionIds[activeSessionId]),
-  );
 
   const composerRef = useRef<ComposerHandle>(null);
 
@@ -84,11 +83,6 @@ export function ChatPane({ projectId, apiKeys, hasSessions = false }: ChatPanePr
     composerRef.current?.focus();
   }, [activeSessionId]);
 
-  const enqueueComposerSubmission = useWorkspaceStore(
-    (s) => s.enqueueComposerSubmission,
-  );
-  const requestSessionStop = useWorkspaceStore((s) => s.requestSessionStop);
-
   const handleSend = useCallback(
     (parts: ComposerSendParts) => {
       if (!activeSessionId) return;
@@ -96,11 +90,6 @@ export function ChatPane({ projectId, apiKeys, hasSessions = false }: ChatPanePr
     },
     [activeSessionId, enqueueComposerSubmission],
   );
-
-  const handleStop = useCallback(() => {
-    if (!activeSessionId) return;
-    requestSessionStop(activeSessionId);
-  }, [activeSessionId, requestSessionStop]);
 
   const hasActiveMountable =
     !!activeSessionId && mountableIds.includes(activeSessionId);
@@ -128,7 +117,6 @@ export function ChatPane({ projectId, apiKeys, hasSessions = false }: ChatPanePr
             key={sessionId}
             projectId={projectId}
             sessionId={sessionId}
-            active={sessionId === activeSessionId}
           />
         ))}
         {!hasActiveMountable &&
@@ -145,9 +133,7 @@ export function ChatPane({ projectId, apiKeys, hasSessions = false }: ChatPanePr
         projectId={projectId}
         sessionId={composerSessionId}
         apiKeys={apiKeys}
-        streaming={isStreaming}
         onSend={handleSend}
-        onStop={handleStop}
         uploadFiles={handleValidFiles}
         uploadPending={upload.isPending}
       />

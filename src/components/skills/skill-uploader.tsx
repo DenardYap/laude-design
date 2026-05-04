@@ -25,17 +25,14 @@ import {
 import { cn } from "@/lib/utils";
 import { SkillSchema, type SkillInput } from "@/lib/validators";
 import { uploadSkill } from "@/server/actions/skills";
-
-const ACCEPTED_EXTS = [".md", ".mdc", ".markdown", ".txt"] as const;
-const ACCEPTED_ATTR = ACCEPTED_EXTS.join(",");
-const ACCEPTED_LABEL = ".md, .mdc, .markdown, or .txt";
-const STRIP_EXT_RE = /\.(md|mdc|markdown|txt)$/i;
-const MAX_BYTES = 64 * 1024;
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  return `${(bytes / 1024).toFixed(1)} KB`;
-}
+import {
+  ACCEPTED_EXTS,
+  ACCEPTED_ATTR,
+  ACCEPTED_LABEL,
+  STRIP_EXT_RE,
+  MAX_BYTES,
+  formatFileSize,
+} from "@/components/skills/utils/skill-uploader";
 
 export function SkillUploader() {
   const [open, setOpen] = useState(false);

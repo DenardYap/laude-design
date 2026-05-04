@@ -16,14 +16,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import type {
+  RecencyGroup,
+  SessionHistoryListProps,
+  SessionHistoryRowProps,
+} from "@/components/workspace/chat/types/session";
 import type { ChatSessionDTO } from "@/lib/workspace/types";
-
-interface SessionHistoryListProps {
-  sessions: ChatSessionDTO[];
-  activeSessionId: string | undefined;
-  onSelect: (sessionId: string) => void;
-  onDelete: (sessionId: string) => void;
-}
 
 // ---------------------------------------------------------------------------
 // SessionHistoryRow — single cmdk item with title, active-check, delete
@@ -34,12 +32,7 @@ function SessionHistoryRow({
   isActive,
   onSelect,
   onDelete,
-}: {
-  session: ChatSessionDTO;
-  isActive: boolean;
-  onSelect: () => void;
-  onDelete: () => void;
-}) {
+}: SessionHistoryRowProps) {
   return (
     <CommandItem
       value={itemValue(session.id)}
@@ -152,15 +145,9 @@ export function SessionHistoryList({
 // ---------------------------------------------------------------------------
 
 // Prefix keeps the cmdk value distinct from any other Command consumer that
-// might share the DOM (defensive — currently this list lives in its own
-// popover).
+// might share the DOM.
 function itemValue(sessionId: string): string {
   return `session:${sessionId}`;
-}
-
-interface RecencyGroup {
-  label: string;
-  sessions: ChatSessionDTO[];
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;

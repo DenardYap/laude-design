@@ -19,14 +19,7 @@ import { useOptimisticFilesStore } from "@/stores/optimistic-files-store";
 import { deleteDesign, moveDesign, renameDesign } from "@/server/actions/designs";
 
 import { InlineRenameInput } from "@/components/shared/inline-rename-input";
-
-interface DesignRowProps {
-  projectId: string;
-  design: DesignDTO;
-  folders: FolderDTO[];
-  designs: DesignDTO[];
-  depth: number;
-}
+import type { DesignRowProps } from "@/components/workspace/canvas/files-tree/types/files-tree";
 
 export function DesignRow({ projectId, design, folders, designs, depth }: DesignRowProps) {
   const router = useRouter();

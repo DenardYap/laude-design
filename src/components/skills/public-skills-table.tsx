@@ -1,45 +1,24 @@
 "use client";
 
-import { useMemo, useState } from 'react';
-import { match } from "ts-pattern";
+import { useMemo, useState } from "react";
 
-import { Button, EmptyState, SkillMark } from "@/components/ui";
-import { SortMenu, type SortOption } from "@/components/shared/sort-menu";
+import { EmptyState, SkillMark } from "@/components/ui";
+import { SortMenu } from "@/components/shared/sort-menu";
 import { TablePagination, usePagination } from "@/components/shared/pagination";
 import { useScopeQuery, useScopeDimension } from "@/stores/filters-store";
-import { PublicSkillRow, SkillTableHeader, type PublicSkill } from "./skill-row";
-import { SkillsFilters, hasActiveFilters } from "./skills-filters";
-import { bucketBySize, type SkillSizeBucket } from "./skill-size";
-import { SkillUploader } from "./skill-uploader";
-
-interface PublicSkillsTableProps {
-  skills: PublicSkill[];
-}
+import { PublicSkillRow } from "@/components/skills/public-skill-row";
+import { SkillTableHeader } from "@/components/skills/skill-table-header";
+import { SkillsFilters } from "@/components/skills/skills-filters";
+import { hasActiveFilters } from "@/components/skills/utils/skills-filters";
+import { bucketBySize } from "@/components/skills/utils/skill-size";
+import { sortPublicSkills, SORT_OPTIONS } from "@/components/skills/utils/public-skills";
+import { SkillUploader } from "@/components/skills/skill-uploader";
+import { EmptyMatch } from "@/components/skills/empty-match";
+import type { PublicSkillsTableProps, PublicSortKey } from "@/components/skills/types/skill-table";
+import type { SkillSizeBucket } from "@/components/skills/types/skills";
 
 const COLUMNS = ["Name", "Author", "Saves", "Likes", "Tokens", "Updated"];
 const PAGE_SIZE = 25;
-
-type PublicSortKey = "saves" | "likes" | "updated";
-
-const SORT_OPTIONS: ReadonlyArray<SortOption<PublicSortKey>> = [
-  { value: "saves", label: "Most saved" },
-  { value: "likes", label: "Most liked" },
-  { value: "updated", label: "Recently updated" },
-];
-
-function sortPublicSkills(skills: PublicSkill[], key: PublicSortKey): PublicSkill[] {
-  // The server pre-sorts by saves desc; for that key we don't need to recompute.
-  // For stable secondary ordering, fall back to updatedAt desc on ties.
-  const ts = (s: PublicSkill) => new Date(s.updatedAt).getTime();
-  return [...skills].sort((a, b) => {
-    const primary = match(key)
-      .with("saves", () => b.saves - a.saves)
-      .with("likes", () => b.likes - a.likes)
-      .with("updated", () => ts(b) - ts(a))
-      .exhaustive();
-    return primary !== 0 ? primary : ts(b) - ts(a);
-  });
-}
 
 export function PublicSkillsTable({ skills }: PublicSkillsTableProps) {
   const { query, setQuery } = useScopeQuery("skills:public");
@@ -49,8 +28,7 @@ export function PublicSkillsTable({ skills }: PublicSkillsTableProps) {
     "author",
   );
   // Sort lives in local state — it's a per-tab UI preference that doesn't
-  // need to round-trip through the filters store (the store is shaped for
-  // many-of selections; sort is exactly-one-of).
+  // need to round-trip through the filters store.
   const [sortKey, setSortKey] = useState<PublicSortKey>("saves");
 
   const visible = useMemo(() => {
@@ -131,28 +109,6 @@ export function PublicSkillsTable({ skills }: PublicSkillsTableProps) {
           />
         </div>
       )}
-    </div>
-  );
-}
-
-interface EmptyMatchProps {
-  query: string;
-  filtersActive: boolean;
-  onClear: () => void;
-}
-
-function EmptyMatch({ query, filtersActive, onClear }: EmptyMatchProps) {
-  const reason = match({ hasQuery: query.trim().length > 0, filtersActive })
-    .with({ hasQuery: true, filtersActive: true }, () => "No skills match your search and filters.")
-    .with({ hasQuery: true, filtersActive: false }, () => "No skills match your search.")
-    .with({ hasQuery: false, filtersActive: true }, () => "No skills match the active filters.")
-    .otherwise(() => "No skills.");
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-dashed border-border px-4 py-6 text-sm text-ink-muted">
-      <span>{reason}</span>
-      <Button variant="ghost" size="sm" onClick={onClear}>
-        Clear
-      </Button>
     </div>
   );
 }

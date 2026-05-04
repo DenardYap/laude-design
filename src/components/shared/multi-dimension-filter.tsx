@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo } from "react";
 import { Check, Filter } from "lucide-react";
 
 import {
@@ -19,23 +19,11 @@ import {
 import {
   useFiltersStore,
   useScopeDimensions,
-  type FilterScope,
 } from "@/stores/filters-store";
 import { cn } from "@/lib/utils";
+import type { MultiDimensionFilterProps } from "@/components/shared/types/filter";
 
-export interface FilterGroup {
-  dimension: string;
-  label: string;
-  options: Array<{ value: string; label: string }>;
-}
-
-interface MultiDimensionFilterProps {
-  scope: FilterScope;
-  groups: FilterGroup[];
-  /** Trigger label when no filters are active. */
-  label?: string;
-  triggerVariant?: "outline" | "ghost";
-}
+export type { FilterGroup } from "@/components/shared/types/filter";
 
 /**
  * Single-popover filter that exposes several independent dimensions at once.

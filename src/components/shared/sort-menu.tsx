@@ -11,22 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import type { SortMenuProps } from "@/components/shared/types/sort-menu";
 
-export interface SortOption<TValue extends string = string> {
-  value: TValue;
-  label: string;
-  /** Optional short label rendered in the trigger when this option is active. */
-  triggerLabel?: string;
-}
-
-interface SortMenuProps<TValue extends string> {
-  value: TValue;
-  onChange: (value: TValue) => void;
-  options: ReadonlyArray<SortOption<TValue>>;
-  /** Header rendered above the option list. */
-  label?: string;
-  triggerVariant?: "outline" | "ghost";
-}
+export type { SortOption } from "@/components/shared/types/sort-menu";
 
 /**
  * Single-select sort dropdown that mirrors the look of `MultiDimensionFilter`
