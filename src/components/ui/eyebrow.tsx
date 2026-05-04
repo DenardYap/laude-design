@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 import type { HTMLAttributes } from 'react';
 import { cn } from "@/lib/utils";
 
-export interface EyebrowProps extends HTMLAttributes<HTMLParagraphElement> {}
+export type EyebrowProps = HTMLAttributes<HTMLParagraphElement>;
 
 /**
  * Small uppercase label that sits above a heading or section.
