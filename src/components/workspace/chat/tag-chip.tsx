@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { MousePointerClick, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -9,14 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { type TagMarker } from "@/lib/workspace/tag-markers";
-
-interface TagChipProps {
-  tag: TagMarker;
-  /** When provided, the chip shows a remove button (composer use). */
-  onRemove?: () => void;
-  className?: string;
-}
+import type { TagChipProps } from "@/components/workspace/chat/types/misc";
 
 const FALLBACK_LABEL = "Highlighted element";
 

@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { LogOut } from "lucide-react";
 
 import {

@@ -1,6 +1,8 @@
 "use client";
 
-import * as React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent, Ref } from 'react';
+
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Folder, Pencil, X } from "lucide-react";
@@ -12,9 +14,11 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui";
+import { InlineRenameInput } from "@/components/shared/inline-rename-input";
 import { cn } from "@/lib/utils";
 import type { DesignDTO } from "@/lib/workspace/types";
 import { EMPTY_TAB_LIST, useWorkspaceStore } from "@/stores/workspace-store";
+import { useOptimisticFilesStore } from "@/stores/optimistic-files-store";
 import { deleteDesign, renameDesign } from "@/server/actions/designs";
 
 interface CanvasTabStripProps {
@@ -29,48 +33,69 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
   const activeTab = useWorkspaceStore(
     (s) => s.activeTabByProject[projectId] ?? "files",
   );
+  const hasHydrated = useWorkspaceStore((s) => s._hasHydrated);
   const setActive = useWorkspaceStore((s) => s.setActiveTab);
   const closeTab = useWorkspaceStore((s) => s.closeDesignTab);
   const setTabOrder = useWorkspaceStore((s) => s.setDesignTabOrder);
+  const ensureCanvasHydrated = useWorkspaceStore(
+    (s) => s.ensureCanvasTabsHydrated,
+  );
+
+  // Before the Zustand persist middleware has finished reading localStorage,
+  // suppress the active-tab highlight entirely. Using `null` means no tab
+  // receives the TAB_ACTIVE class, preventing the Files tab from flashing as
+  // "selected" for a frame before the real persisted value is known.
+  const visibleActiveTab = hasHydrated ? activeTab : null;
+
+  const designIds = useMemo(() => designs.map((d) => d.id), [designs]);
+
+  // Reconcile persisted canvas-tab state against the current server-rendered
+  // design list. Runs whenever the active tab changes (including the Zustand
+  // persist rehydration flush that happens after mount) so a stale design ID
+  // is always caught regardless of whether the store had hydrated by the time
+  // the initial mount effect fired.
+  useEffect(() => {
+    ensureCanvasHydrated(projectId, designIds);
+  }, [projectId, designIds, ensureCanvasHydrated, activeTab]);
 
   // Mutable drag state — kept in refs so mousemove handlers are never stale
-  const orderRef = React.useRef<string[]>([...openTabs]);
+  const orderRef = useRef<string[]>([...openTabs]);
   // naturalLeft = tab's left edge with transform:none (updated at drag start and after each swap)
-  const dragRef = React.useRef<{
+  const dragRef = useRef<{
     tabId: string;
     startX: number;
     naturalLeft: number;
   } | null>(null);
-  const tabElsRef = React.useRef<Map<string, HTMLDivElement>>(new Map());
-  const filesTabRef = React.useRef<HTMLButtonElement>(null);
+  const tabElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const filesTabRef = useRef<HTMLButtonElement>(null);
 
   // Rendered order (triggers re-render on swap) + per-tab offset for the ghost
   const [renderOrder, setRenderOrder] =
-    React.useState<readonly string[]>(openTabs);
-  const [dragOffset, setDragOffset] = React.useState<{
+    useState<readonly string[]>(openTabs);
+  const [dragOffset, setDragOffset] = useState<{
     tabId: string;
     offset: number;
   } | null>(null);
 
   // Which tab (if any) is currently showing its rename input
-  const [renamingId, setRenamingId] = React.useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
 
   // Keep orderRef and renderOrder in sync when the store changes and we're not dragging
-  React.useEffect(() => {
+  useEffect(() => {
     if (!dragRef.current) {
       orderRef.current = [...openTabs];
       setRenderOrder(openTabs);
     }
   }, [openTabs]);
 
-  const designById = React.useMemo(() => {
+  const designById = useMemo(() => {
     const map = new Map<string, DesignDTO>();
     for (const d of designs) map.set(d.id, d);
     return map;
   }, [designs]);
 
-  const handleTabMouseDown = React.useCallback(
-    (id: string, e: React.MouseEvent<HTMLDivElement>) => {
+  const handleTabMouseDown = useCallback(
+    (id: string, e: ReactMouseEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
       // Guard: ignore if a drag is already in progress (prevents stacked listeners)
       if (dragRef.current) return;
@@ -88,7 +113,7 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
       document.body.style.userSelect = "none";
       document.body.style.cursor = "grabbing";
 
-      const handleMouseMove = (ev: MouseEvent) => {
+      const handleMouseMove = (ev: globalThis.MouseEvent) => {
         if (!dragRef.current) return;
         const { tabId, startX, naturalLeft } = dragRef.current;
 
@@ -174,7 +199,7 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
     [projectId, setTabOrder],
   );
 
-  const registerTabEl = React.useCallback(
+  const registerTabEl = useCallback(
     (id: string) => (el: HTMLDivElement | null) => {
       if (el) tabElsRef.current.set(id, el);
       else tabElsRef.current.delete(id);
@@ -186,7 +211,7 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
     <div className="flex items-center gap-1 overflow-x-auto ">
       <FilesTab
         ref={filesTabRef}
-        active={activeTab === "files"}
+        active={visibleActiveTab === "files"}
         onClick={() => setActive(projectId, "files")}
       />
       {renderOrder.map((id) => {
@@ -197,7 +222,7 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
           <DesignTab
             key={id}
             design={design}
-            active={activeTab === `design:${id}`}
+            active={visibleActiveTab === `design:${id}`}
             renaming={renamingId === id}
             onRenameChange={(v) => setRenamingId(v ? id : null)}
             isDragging={isDragging}
@@ -224,7 +249,7 @@ function FilesTab({
   active,
   onClick,
 }: {
-  ref?: React.Ref<HTMLButtonElement>;
+  ref?: Ref<HTMLButtonElement>;
   active: boolean;
   onClick: () => void;
 }) {
@@ -251,7 +276,7 @@ interface DesignTabProps {
   tabRef: (el: HTMLDivElement | null) => void;
   onSelect: () => void;
   onClose: () => void;
-  onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onMouseDown: (e: ReactMouseEvent<HTMLDivElement>) => void;
 }
 
 function DesignTab({
@@ -267,31 +292,57 @@ function DesignTab({
   onMouseDown,
 }: DesignTabProps) {
   const router = useRouter();
-  const [draft, setDraft] = React.useState(design.name);
+  const renameTriggeredRef = useRef(false);
 
-  // Keep draft in sync when the design name changes externally
-  React.useEffect(() => {
-    if (!renaming) setDraft(design.name);
-  }, [design.name, renaming]);
+  const setDesignRename = useOptimisticFilesStore((s) => s.setDesignRename);
+  const clearDesignRename = useOptimisticFilesStore(
+    (s) => s.clearDesignRename,
+  );
+  const markDesignDeleted = useOptimisticFilesStore(
+    (s) => s.markDesignDeleted,
+  );
+  const unmarkDesignDeleted = useOptimisticFilesStore(
+    (s) => s.unmarkDesignDeleted,
+  );
 
   const rename = useMutation({
-    mutationFn: (name: string) => renameDesign(design.id, name),
-    onSuccess: () => {
+    mutationFn: async (name: string) => {
+      const next = name.trim() || "Untitled";
+      await renameDesign(design.id, name);
+      return next;
+    },
+    onMutate: (name) => {
+      const next = name.trim() || "Untitled";
+      setDesignRename(design.id, next);
       onRenameChange(false);
+    },
+    onSuccess: (newName) => {
+      toast.success(`Renamed design to “${newName}”`);
       router.refresh();
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Failed to rename"),
+    onError: (e) => {
+      clearDesignRename(design.id);
+      toast.error(e instanceof Error ? e.message : "Failed to rename");
+    },
   });
 
   const remove = useMutation({
-    mutationFn: () => deleteDesign(design.id),
-    onSuccess: () => {
+    mutationFn: async () => {
+      await deleteDesign(design.id);
+      return design.name;
+    },
+    onMutate: () => {
+      markDesignDeleted(design.id);
       onClose();
+    },
+    onSuccess: (name) => {
+      toast.success(`Deleted “${name}”`);
       router.refresh();
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Failed to delete"),
+    onError: (e) => {
+      unmarkDesignDeleted(design.id);
+      toast.error(e instanceof Error ? e.message : "Failed to delete");
+    },
   });
 
   return (
@@ -327,21 +378,19 @@ function DesignTab({
           )}
         >
           {renaming ? (
-            <input
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              onBlur={() => rename.mutate(draft)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === "Enter") rename.mutate(draft);
-                if (e.key === "Escape") {
-                  setDraft(design.name);
+            <InlineRenameInput
+              size="xs"
+              variant="raised"
+              initialValue={design.name}
+              onCommit={(v) => {
+                const trimmed = v.trim() || "Untitled";
+                if (trimmed === design.name) {
                   onRenameChange(false);
+                  return;
                 }
+                rename.mutate(v);
               }}
-              className="w-28 bg-transparent text-xs outline-none"
+              onCancel={() => onRenameChange(false)}
             />
           ) : (
             <span className="truncate">{design.name}</span>
@@ -370,8 +419,20 @@ function DesignTab({
           </button>
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onSelect={() => onRenameChange(true)}>
+      <ContextMenuContent
+        onCloseAutoFocus={(e) => {
+          if (renameTriggeredRef.current) {
+            e.preventDefault();
+            renameTriggeredRef.current = false;
+          }
+        }}
+      >
+        <ContextMenuItem
+          onSelect={() => {
+            renameTriggeredRef.current = true;
+            onRenameChange(true);
+          }}
+        >
           Rename
         </ContextMenuItem>
         <ContextMenuItem onSelect={onClose}>Close tab</ContextMenuItem>

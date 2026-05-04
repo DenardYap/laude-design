@@ -46,7 +46,7 @@ export function FolderChildren({
       {depth >= 1 ? (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-1 top-0 w-px bg-border/60"
+          className="pointer-events-none absolute bottom-1 top-0 w-px bg-border-strong/60"
           style={{ left: (depth - 1) * 12 + 13 }}
         />
       ) : null}
@@ -66,6 +66,7 @@ export function FolderChildren({
           projectId={projectId}
           design={d}
           folders={folders}
+          designs={designs}
           depth={depth}
         />
       ))}

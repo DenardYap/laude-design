@@ -23,6 +23,7 @@ model User {
   apiKeys    ApiKey[]
   skills     Skill[]
   skillLikes SkillLike[]
+  skillSaves SkillSave[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -106,7 +107,6 @@ model ChatSession {
   id        String   @id @default(cuid())
   projectId String
   title     String   @default("Session 1")
-  order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -114,14 +114,48 @@ model ChatSession {
   // live message window. See `src/lib/ai/context-summarizer.ts`.
   rollingSummary String?
 
-  // Cumulative usage stats for the chatbox circle indicator. All updated
-  // atomically in the chat route's stream-finish handler. Cost is computed
-  // from a static pricing table (see `src/lib/ai/pricing.ts`); auxiliary
-  // model calls (titler, summarizer) are intentionally excluded.
+  // Lifetime usage stats. All updated atomically in the chat route's
+  // stream-finish handler. Cost is computed from a static pricing table
+  // (see `src/lib/ai/pricing.ts`); auxiliary model calls (titler,
+  // summarizer) are intentionally excluded.
+  //
+  // - `cumulativeInputTokens`: gross lifetime input billed across every
+  //   step. Kept for analytics/debugging — NOT surfaced in the UI
+  //   because it compounds per turn (re-sent history is billed again
+  //   each turn, modulo prompt caching).
+  // - `cumulativeOutputTokens`: lifetime sum of every assistant token
+  //   ever produced. Surfaced as "Output tokens" in the chatbox popover.
+  // - `cumulativeFoldedTokens`: cumulative size of messages the rolling
+  //   summarizer has folded into the summary across the session lifetime.
+  //   Added to `lastInputTokens` to compute the popover's "Input tokens"
+  //   line so it never decreases when summarization shrinks the live
+  //   prompt — instead it represents what the live prompt WOULD weigh
+  //   if summarization had never fired.
   cumulativeInputTokens  Int   @default(0)
   cumulativeOutputTokens Int   @default(0)
+  cumulativeFoldedTokens Int   @default(0)
   summarizedCount        Int   @default(0)
   totalCostUsd           Float @default(0)
+
+  // Provider-reported input token count for the most recent completed step.
+  // Doubles as the "current context window fill" indicator in the chatbox
+  // ring AND as a floor for the summarization trigger (so a model switch
+  // to a smaller context window still fires summarization even when the
+  // character-based estimate falls short of the new threshold).
+  lastInputTokens Int @default(0)
+
+  // Number of leading client UIMessages that have already been folded into
+  // `rollingSummary` and MUST NOT be re-sent to the model on subsequent
+  // turns. The client has no way to know the server folded its history
+  // (the chat UI deliberately keeps showing every message for the user's
+  // benefit), so without this field the chat route would blast the full
+  // history back at the LLM on every turn AND tack the summary on top —
+  // immediately undoing the summarizer's work and ping-ponging the live
+  // request between "small (just summarized)" and "huge (full history
+  // again)" on alternate turns. Sliced upfront in the chat route before
+  // any token-counting or message conversion happens. Incremented after
+  // each summarization fires by the count of UIMessages folded that turn.
+  foldedMessageCount Int @default(0)
 
   project       Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
   messages      Message[]
@@ -178,7 +212,6 @@ model Message {
   sessionId   String
   role        String
   parts       Json
-  attachments Json?
   createdAt   DateTime @default(now())
 
   session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -237,17 +270,32 @@ model Skill {
   content          String   @db.Text
   isPublic         Boolean  @default(false)
   appliedByDefault Boolean  @default(true)
-  downloads        Int      @default(0)
+  // Denormalized counters that mirror `savedBy` and `likedBy` row counts.
+  // Each per-user action is recorded in the SkillSave / SkillLike join table
+  // (composite PK on (skillId, userId)) so a user can only ever contribute
+  // +1 to either counter — re-saves after a deletion and repeated likes are
+  // both no-ops at the counter level.
+  saves            Int      @default(0)
   likes            Int      @default(0)
+  // When a user adds a public skill to their library we clone it into a new
+  // owned Skill row and point this back at the original. Lets us (a) detect
+  // "already in your library" on the public detail page, and (b) attribute
+  // clones back to their source. Set to NULL when the source is deleted so
+  // the user's copy survives.
+  originalSkillId  String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  likedBy   SkillLike[]
-  overrides ProjectSkillOverride[]
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likedBy        SkillLike[]
+  savedBy        SkillSave[]
+  overrides      ProjectSkillOverride[]
+  originalSkill  Skill?                 @relation("SkillClones", fields: [originalSkillId], references: [id], onDelete: SetNull)
+  clones         Skill[]                @relation("SkillClones")
 
   @@index([userId, updatedAt])
   @@index([isPublic])
+  @@index([userId, originalSkillId])
 }
 
 model ProjectSkillOverride {
@@ -262,7 +310,32 @@ model ProjectSkillOverride {
   @@index([projectId])
 }
 
+/// Permanent record that user X liked public skill Y at some point. The
+/// composite PK guarantees one row per (skill, user); the `active` flag
+/// captures whether the user *currently* considers it liked. Rows are
+/// never deleted by app code — toggling personal state flips `active` —
+/// so `Skill.likes` (= COUNT of rows) is monotonic per user: liking and
+/// unliking and liking again only counts once toward the public counter.
 model SkillLike {
+  skillId   String
+  userId    String
+  /// false when the user has un-liked this skill. Counter contribution is
+  /// independent of this flag — it's purely a personal display state.
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([skillId, userId])
+  @@index([userId])
+}
+
+/// Permanent record that user X saved public skill Y at some point. Survives
+/// deletion of the user's local clone so re-saving the same skill never
+/// double-bumps `Skill.saves`. Composite PK on (skillId, userId) makes the
+/// "one save per user" rule a database invariant, not just app code.
+model SkillSave {
   skillId   String
   userId    String
   createdAt DateTime @default(now())

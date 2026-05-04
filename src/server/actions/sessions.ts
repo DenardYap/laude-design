@@ -18,43 +18,23 @@ async function assertProjectAccess(projectId: string) {
 export async function createSession(projectId: string) {
   await assertProjectAccess(projectId);
 
-  // Defensive dedupe: if there's already a "New Session"-style session with no
-  // messages, hand the user that one instead of stacking up empty tabs. Catches
-  // both the spam-click case and the cross-tab case (another tab already made
-  // an empty session that hasn't been used yet).
-  const existingEmpty = await db.chatSession.findFirst({
-    where: { projectId, messages: { none: {} } },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, order: true, updatedAt: true },
-  });
-  if (existingEmpty) {
-    return {
-      id: existingEmpty.id,
-      title: existingEmpty.title,
-      order: existingEmpty.order,
-      updatedAt: existingEmpty.updatedAt.toISOString(),
-      isEmpty: true,
-      reused: true as const,
-    };
-  }
-
-  const count = await db.chatSession.count({ where: { projectId } });
+  // Always create a fresh session. The client-side guard in SessionTabs is the
+  // single source of truth for "is the user already on a usable empty tab?" —
+  // it knows about unsent draft text and pending attachments that the server
+  // can't see, and it lets the user stack tabs intentionally if they want.
   const session = await db.chatSession.create({
     data: {
       projectId,
       title: "New Session",
-      order: count,
     },
-    select: { id: true, title: true, order: true, updatedAt: true },
+    select: { id: true, title: true, updatedAt: true },
   });
   revalidatePath(`/projects/${projectId}`);
   return {
     id: session.id,
     title: session.title,
-    order: session.order,
     updatedAt: session.updatedAt.toISOString(),
     isEmpty: true,
-    reused: false as const,
   };
 }
 

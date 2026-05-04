@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useCallback, useEffect, useState } from 'react';
 import { match } from "ts-pattern";
 
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -56,16 +56,16 @@ export function useDesignScreenshotCapture(
   // Ensure the canvas is rendering the selected design. `openDesignTab`
   // both opens the tab (if closed) and makes it active — so it's a no-op
   // when the design is already showing.
-  React.useEffect(() => {
+  useEffect(() => {
     if (activeTab !== `design:${designId}`) {
       openDesignTab(projectId, designId);
     }
   }, [projectId, designId, activeTab, openDesignTab]);
 
-  const [status, setStatus] = React.useState<CaptureStatus>({
+  const [status, setStatus] = useState<CaptureStatus>({
     status: "waiting",
   });
-  const [nonce, setNonce] = React.useState(0);
+  const [nonce, setNonce] = useState(0);
 
   // Capture a thumbnail. The in-iframe script queues the request if
   // html-to-image is still loading and replies as soon as it's ready, so a
@@ -75,7 +75,7 @@ export function useDesignScreenshotCapture(
   // The only thing we retry client-side is "the iframe DOM isn't mounted
   // yet" — which happens when the canvas tab just switched to this design
   // and the Sandpack provider hasn't attached its iframe yet.
-  React.useEffect(() => {
+  useEffect(() => {
     setStatus({ status: "waiting" });
     let cancelled = false;
     let frameHandle: number | null = null;
@@ -123,7 +123,7 @@ export function useDesignScreenshotCapture(
     };
   }, [designId, nonce]);
 
-  const captureAsync = React.useCallback(async (): Promise<string> => {
+  const captureAsync = useCallback(async (): Promise<string> => {
     const iframe = findCanvasIframe();
     const contentWindow = iframe?.contentWindow;
     if (!contentWindow) {
@@ -134,7 +134,7 @@ export function useDesignScreenshotCapture(
     return captureWithWindow(contentWindow);
   }, []);
 
-  const recapture = React.useCallback(() => setNonce((n) => n + 1), []);
+  const recapture = useCallback(() => setNonce((n) => n + 1), []);
 
   return {
     status,

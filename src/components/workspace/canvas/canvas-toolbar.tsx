@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useCallback, useEffect, useState } from 'react';
 import { Camera, Minus, MousePointerClick, Pencil, Plus } from "lucide-react";
 
 import {
@@ -28,12 +28,15 @@ interface CanvasToolbarProps {
    * route through here. A no-op when we're not currently in Draw mode.
    */
   onRequestSwitch: ExitDrawingControl["requestSwitch"];
+  /** Disables screenshot controls when no design content has been rendered yet. */
+  isCanvasEmpty?: boolean;
 }
 
 export function CanvasToolbar({
   onCaptureFull,
   onStartAreaCapture,
   onRequestSwitch,
+  isCanvasEmpty = false,
 }: CanvasToolbarProps) {
   const tool = useWorkspaceStore((s) => s.tool);
   const setTool = useWorkspaceStore((s) => s.setTool);
@@ -46,10 +49,12 @@ export function CanvasToolbar({
   const atMinZoom = zoom <= ZOOM_LEVELS[0]! + 1e-6;
   const atMaxZoom = zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]! - 1e-6;
 
+  const [screenshotOpen, setScreenshotOpen] = useState(false);
+
   // Local helpers so each button has one obvious code path:
   //  • Not in Draw mode → run the action directly.
   //  • In Draw mode    → delegate to the discard-confirm flow.
-  const switchToolGuarded = React.useCallback(
+  const switchToolGuarded = useCallback(
     (next: ToolMode) => {
       if (tool === "draw") {
         onRequestSwitch(next);
@@ -59,7 +64,7 @@ export function CanvasToolbar({
     },
     [tool, setTool, onRequestSwitch],
   );
-  const runActionGuarded = React.useCallback(
+  const runActionGuarded = useCallback(
     (action: () => void) => {
       if (tool === "draw") {
         // Switch back to idle first so the action sees a clean slate; many
@@ -73,50 +78,62 @@ export function CanvasToolbar({
     [tool, onRequestSwitch],
   );
 
-  const toggleTag = React.useCallback(
+  const toggleTag = useCallback(
     () => switchToolGuarded(tool === "tag" ? "idle" : "tag"),
     [tool, switchToolGuarded],
   );
-  const toggleDraw = React.useCallback(() => {
+  const toggleDraw = useCallback(() => {
     if (tool === "draw") {
       onRequestSwitch("idle");
     } else {
       setTool("draw");
     }
   }, [tool, setTool, onRequestSwitch]);
-  const handleCaptureFull = React.useCallback(
+  const handleCaptureFull = useCallback(
     () => runActionGuarded(onCaptureFull),
     [runActionGuarded, onCaptureFull],
   );
-  const handleStartAreaCapture = React.useCallback(
+  const handleStartAreaCapture = useCallback(
     () => runActionGuarded(onStartAreaCapture),
     [runActionGuarded, onStartAreaCapture],
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
-
-      // ⌘⇧ tool toggles. Kept on the shifted layer so we don't fight
-      // ⌘+ / ⌘- below (which need to fire WITHOUT shift).
-      if (e.shiftKey) {
-        if (e.key === "H" || e.key === "h") {
-          e.preventDefault();
-          toggleTag();
-        } else if (e.key === "S" || e.key === "s") {
-          e.preventDefault();
-          handleCaptureFull();
-        } else if (e.key === "D" || e.key === "d") {
-          e.preventDefault();
-          toggleDraw();
-        }
+      // Only fire when the browser window itself is focused — skip when the
+      // user is typing inside a text input, textarea, or contenteditable.
+      const target = e.target as HTMLElement;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable
+      ) {
         return;
       }
 
-      // ⌘+ / ⌘- / ⌘0 — mirror browser zoom shortcuts so muscle memory
-      // works on the canvas. Accept "+" and "=" (same physical key on US
-      // layouts) and "-" / "_" so shift state doesn't matter to the user.
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+
+      // Ctrl+1 / Ctrl+2 / Ctrl+3 — tool shortcuts (no shift required).
+      if (!e.shiftKey) {
+        if (e.key === "1") {
+          e.preventDefault();
+          toggleTag();
+          return;
+        } else if (e.key === "2") {
+          e.preventDefault();
+          if (!isCanvasEmpty) setScreenshotOpen(true);
+          return;
+        } else if (e.key === "3") {
+          e.preventDefault();
+          toggleDraw();
+          return;
+        }
+      }
+
+      // ⌘+ / ⌘- / ⌘0 — simulate wider/narrower screen. Accept "+" and "="
+      // (same physical key on US layouts) and "-" / "_" so shift state
+      // doesn't matter to the user.
       if (e.key === "=" || e.key === "+") {
         e.preventDefault();
         zoomIn();
@@ -130,7 +147,7 @@ export function CanvasToolbar({
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [toggleTag, toggleDraw, handleCaptureFull, zoomIn, zoomOut, resetZoom]);
+  }, [toggleTag, toggleDraw, zoomIn, zoomOut, resetZoom]);
 
   return (
     <div className="flex items-center gap-1">
@@ -146,16 +163,17 @@ export function CanvasToolbar({
         </TooltipTrigger>
         <TooltipContent side="bottom" className="flex flex-col items-center gap-0.5">
           <span>{tool === "tag" ? "Click element to highlight" : "Highlight element"}</span>
-          <span className="text-[10px] opacity-60">⌘⇧H</span>
+          <span className="text-[10px] opacity-60">Ctrl+1</span>
         </TooltipContent>
       </Tooltip>
 
-      <DropdownMenu>
+      <DropdownMenu open={screenshotOpen} onOpenChange={isCanvasEmpty ? undefined : setScreenshotOpen}>
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
               <IconButton
                 aria-label="Screenshot"
+                disabled={isCanvasEmpty}
                 className={cn(
                   "size-7",
                   tool === "screenshot-area" && "bg-brand-soft text-ink",
@@ -165,8 +183,8 @@ export function CanvasToolbar({
             </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="flex flex-col items-center gap-0.5">
-            <span>Screenshot</span>
-            <span className="text-[10px] opacity-60">⌘⇧S for full canvas</span>
+            <span>{isCanvasEmpty ? "No content to screenshot" : "Screenshot"}</span>
+            {!isCanvasEmpty && <span className="text-[10px] opacity-60">Ctrl+2</span>}
           </TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end">
@@ -194,7 +212,7 @@ export function CanvasToolbar({
         </TooltipTrigger>
         <TooltipContent side="bottom" className="flex flex-col items-center gap-0.5">
           <span>{tool === "draw" ? "Exit draw mode" : "Draw on canvas"}</span>
-          <span className="text-[10px] opacity-60">⌘⇧D</span>
+          <span className="text-[10px] opacity-60">Ctrl+3</span>
         </TooltipContent>
       </Tooltip>
 
@@ -202,7 +220,7 @@ export function CanvasToolbar({
         <Tooltip>
           <TooltipTrigger asChild>
             <IconButton
-              aria-label="Zoom out"
+              aria-label="Simulate narrower screen"
               className="size-7 rounded-r-none border-0"
               icon={<Minus className="size-3.5" />}
               onClick={zoomOut}
@@ -210,7 +228,7 @@ export function CanvasToolbar({
             />
           </TooltipTrigger>
           <TooltipContent side="bottom" className="flex flex-col items-center gap-0.5">
-            <span>Zoom out</span>
+            <span>Narrower screen</span>
             <span className="text-[10px] opacity-60">⌘−</span>
           </TooltipContent>
         </Tooltip>
@@ -223,18 +241,18 @@ export function CanvasToolbar({
                   variant="ghost"
                   size="sm"
                   className="h-7 w-12 rounded-none border-x border-border px-0 text-xs tabular-nums"
-                  aria-label={`Zoom level ${Math.round(zoom * 100)}%`}
+                  aria-label={`Screen width: ${Math.round(zoom * 100)}% of canvas`}
                 >
                   {Math.round(zoom * 100)}%
                 </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="flex flex-col items-center gap-0.5">
-              <span>Zoom level</span>
+              <span>Screen width</span>
               <span className="text-[10px] opacity-60">⌘0 to reset</span>
             </TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align="end" className="w-32">
+          <DropdownMenuContent align="end" className="w-36">
             <DropdownMenuItem onSelect={() => resetZoom()}>
               Reset to 100%
               <span className="ml-auto text-[10px] text-ink-muted">⌘0</span>
@@ -255,7 +273,7 @@ export function CanvasToolbar({
         <Tooltip>
           <TooltipTrigger asChild>
             <IconButton
-              aria-label="Zoom in"
+              aria-label="Simulate wider screen"
               className="size-7 rounded-l-none border-0"
               icon={<Plus className="size-3.5" />}
               onClick={zoomIn}
@@ -263,7 +281,7 @@ export function CanvasToolbar({
             />
           </TooltipTrigger>
           <TooltipContent side="bottom" className="flex flex-col items-center gap-0.5">
-            <span>Zoom in</span>
+            <span>Wider screen</span>
             <span className="text-[10px] opacity-60">⌘+</span>
           </TooltipContent>
         </Tooltip>

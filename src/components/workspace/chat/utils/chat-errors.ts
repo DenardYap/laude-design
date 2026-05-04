@@ -61,6 +61,11 @@ export function parseChatError(err: unknown): ChatError {
     // not JSON
   }
 
+  // The extracted text may itself be a structured error (e.g. when the server
+  // returns a 400 with { error: "__CHAT_ERR__:..." }).
+  const structuredFromJson = decodeStructured(text);
+  if (structuredFromJson) return structuredFromJson;
+
   const lower = text.toLowerCase();
 
   // Network / fetch failure (browser TypeError "Failed to fetch").

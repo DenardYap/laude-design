@@ -1,10 +1,10 @@
 "use client";
 
-import * as React from "react";
+import { useMemo } from 'react';
 
 import { Button, EmptyState } from "@/components/ui";
 import { SearchBar } from "@/components/shared/search-bar";
-import { useScopeFilters } from "@/stores/filters-store";
+import { useScopeQuery } from "@/stores/filters-store";
 import { ApiKeyRow, type ProviderConfig } from "./api-key-row";
 import type { AiProvider } from "@/lib/validators";
 
@@ -19,10 +19,10 @@ interface ApiKeysListProps {
 }
 
 export function ApiKeysList({ providers, existingByProvider }: ApiKeysListProps) {
-  const { query, setQuery } = useScopeFilters("api-keys");
+  const { query, setQuery } = useScopeQuery("api-keys");
   const normalized = query.trim().toLowerCase();
 
-  const filtered = React.useMemo(() => {
+  const filtered = useMemo(() => {
     if (!normalized) return providers;
     return providers.filter((p) => p.name.toLowerCase().includes(normalized));
   }, [providers, normalized]);

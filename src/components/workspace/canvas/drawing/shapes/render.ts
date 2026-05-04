@@ -175,26 +175,36 @@ export function drawShape(shape: Shape): DrawnShape {
   const opts = { ...buildOptions(shape.style), seed: shape.seed };
 
   const paths = match(shape)
-    .with({ type: "rectangle" }, (s) =>
-      pathInfosToDrawn(
-        rectanglePath(generator, s.x, s.y, s.w, s.h, s.style.edges, opts),
+    .with({ type: "rectangle" }, (s) => {
+      const x = s.w < 0 ? s.x + s.w : s.x;
+      const y = s.h < 0 ? s.y + s.h : s.y;
+      const w = Math.abs(s.w);
+      const h = Math.abs(s.h);
+      return pathInfosToDrawn(
+        rectanglePath(generator, x, y, w, h, s.style.edges, opts),
         s.style,
-      ),
-    )
-    .with({ type: "diamond" }, (s) =>
-      pathInfosToDrawn(
-        generator.toPaths(generator.polygon(diamondPoints(s.x, s.y, s.w, s.h), opts)),
+      );
+    })
+    .with({ type: "diamond" }, (s) => {
+      const x = s.w < 0 ? s.x + s.w : s.x;
+      const y = s.h < 0 ? s.y + s.h : s.y;
+      const w = Math.abs(s.w);
+      const h = Math.abs(s.h);
+      return pathInfosToDrawn(
+        generator.toPaths(generator.polygon(diamondPoints(x, y, w, h), opts)),
         s.style,
-      ),
-    )
-    .with({ type: "ellipse" }, (s) =>
-      pathInfosToDrawn(
-        generator.toPaths(
-          generator.ellipse(s.x + s.w / 2, s.y + s.h / 2, s.w, s.h, opts),
-        ),
+      );
+    })
+    .with({ type: "ellipse" }, (s) => {
+      const w = Math.abs(s.w);
+      const h = Math.abs(s.h);
+      const cx = s.w < 0 ? s.x - w / 2 : s.x + w / 2;
+      const cy = s.h < 0 ? s.y - h / 2 : s.y + h / 2;
+      return pathInfosToDrawn(
+        generator.toPaths(generator.ellipse(cx, cy, w, h, opts)),
         s.style,
-      ),
-    )
+      );
+    })
     .with({ type: "line" }, (s) =>
       pathInfosToDrawn(
         generator.toPaths(generator.line(s.x1, s.y1, s.x2, s.y2, opts)),

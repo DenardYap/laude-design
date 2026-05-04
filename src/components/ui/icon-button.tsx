@@ -1,18 +1,19 @@
-import * as React from "react";
+import { forwardRef } from 'react';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "./button";
 
 export interface IconButtonProps
-  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children">,
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children">,
     Omit<VariantProps<typeof buttonVariants>, "size"> {
   /** Required so icon-only controls are accessible */
   "aria-label": string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
-const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
+const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
   ({ icon, className, variant = "ghost", ...props }, ref) => (
     <Button
       ref={ref}

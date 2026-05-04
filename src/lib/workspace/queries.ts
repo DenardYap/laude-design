@@ -11,16 +11,18 @@ export async function getWorkspaceData(projectId: string, userId: string) {
   const [sessions, folders, designs, apiKeys] = await Promise.all([
     db.chatSession.findMany({
       where: { projectId },
-      orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+      orderBy: { createdAt: "asc" },
       select: {
         id: true,
         title: true,
-        order: true,
         updatedAt: true,
-        cumulativeInputTokens: true,
-        cumulativeOutputTokens: true,
         summarizedCount: true,
         totalCostUsd: true,
+        // Lifetime usage stats hydrated into the chatbox popover. See
+        // SessionUsage in `types.ts` for the semantics of each field.
+        lastInputTokens: true,
+        cumulativeOutputTokens: true,
+        cumulativeFoldedTokens: true,
         _count: { select: { messages: true } },
       },
     }),
@@ -47,16 +49,16 @@ export async function getWorkspaceData(projectId: string, userId: string) {
 
   if (sessions.length === 0) {
     const created = await db.chatSession.create({
-      data: { projectId, title: "New Session", order: 0 },
+      data: { projectId, title: "New Session" },
       select: {
         id: true,
         title: true,
-        order: true,
         updatedAt: true,
-        cumulativeInputTokens: true,
-        cumulativeOutputTokens: true,
         summarizedCount: true,
         totalCostUsd: true,
+        lastInputTokens: true,
+        cumulativeOutputTokens: true,
+        cumulativeFoldedTokens: true,
         _count: { select: { messages: true } },
       },
     });
@@ -66,14 +68,14 @@ export async function getWorkspaceData(projectId: string, userId: string) {
   const sessionDTOs: ChatSessionDTO[] = sessions.map((s) => ({
     id: s.id,
     title: s.title,
-    order: s.order,
     updatedAt: s.updatedAt.toISOString(),
     isEmpty: s._count.messages === 0,
     usage: {
-      cumulativeInputTokens: s.cumulativeInputTokens,
-      cumulativeOutputTokens: s.cumulativeOutputTokens,
       summarizedCount: s.summarizedCount,
       totalCostUsd: s.totalCostUsd,
+      currentInputTokens: s.lastInputTokens,
+      lifetimeOutputTokens: s.cumulativeOutputTokens,
+      lifetimeFoldedTokens: s.cumulativeFoldedTokens,
     },
   }));
 

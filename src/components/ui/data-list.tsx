@@ -1,20 +1,19 @@
-import * as React from "react";
-
+import type { ReactNode } from 'react';
 import { cn } from "@/lib/utils";
 
 export interface DataListItem {
   id: string;
-  title: React.ReactNode;
-  subtitle?: React.ReactNode;
-  meta?: React.ReactNode;
-  actions?: React.ReactNode;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  meta?: ReactNode;
+  actions?: ReactNode;
   href?: string;
 }
 
 interface DataListProps {
   items: DataListItem[];
   className?: string;
-  renderItem?: (item: DataListItem) => React.ReactNode;
+  renderItem?: (item: DataListItem) => ReactNode;
 }
 
 /**

@@ -40,24 +40,77 @@ const SCREENSHOT_SCRIPT = `
   var ready = false;
   var libError = null;
   var queue = [];
+  // Track in-progress requestIds so duplicate retries don't trigger
+  // redundant captures. The parent re-sends when it hasn't heard back yet
+  // (bundle still compiling), so we discard any copy after the first.
+  var inProgress = {};
 
   function reply(requestId, payload) {
     parent.postMessage(Object.assign({ requestId: requestId }, payload), '*');
   }
 
+  // Hard ceiling on the captured PNG's longest edge (in device pixels).
+  // 4096 fits cleanly inside Anthropic (8000² hard cap), OpenAI Responses
+  // (tiles long edges ~2048 internally — anything bigger is downsampled
+  // before charging), and Gemini (7680×4320). For pages taller than this
+  // we drop pixelRatio so the output stays under the cap rather than
+  // truncating the design.
+  var MAX_LONGEST_EDGE_PX = 4096;
+
   function runCapture(req) {
     var requestId = req.requestId;
+    if (inProgress[requestId]) return; // duplicate retry — already handling
+    inProgress[requestId] = true;
     var pixelRatio = req.pixelRatio;
     var crop = req.crop;
+    var fullPage = !!req.fullPage;
 
     var root = document.getElementById('root') || document.body;
     var bg = (window.getComputedStyle(document.body).backgroundColor || '').trim();
     if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') bg = '#ffffff';
 
+    // Default capture options match the original behaviour (viewport-sized,
+    // honours #root height:100%). Full-page mode swaps these out for explicit
+    // width/height that span the entire scroll extent, plus a style override
+    // so the cloned tree expands to full height instead of staying clipped at
+    // the viewport.
+    var captureOpts = { cacheBust: true, pixelRatio: pixelRatio, backgroundColor: bg };
+    if (fullPage) {
+      var docEl = document.documentElement;
+      var body = document.body;
+      var fullWidth = Math.max(
+        root.scrollWidth, root.offsetWidth,
+        docEl.scrollWidth, docEl.clientWidth,
+        body.scrollWidth, body.offsetWidth
+      ) || root.clientWidth || 1;
+      var fullHeight = Math.max(
+        root.scrollHeight, root.offsetHeight,
+        docEl.scrollHeight, docEl.clientHeight,
+        body.scrollHeight, body.offsetHeight
+      ) || root.clientHeight || 1;
+      // Clamp pixelRatio so width × pr (or height × pr) never exceeds the
+      // provider-safe ceiling. Allows arbitrarily tall designs at the cost
+      // of slightly fuzzier text — way better than truncating the page.
+      var longestCss = Math.max(fullWidth, fullHeight);
+      var maxRatio = MAX_LONGEST_EDGE_PX / Math.max(1, longestCss);
+      captureOpts.pixelRatio = Math.min(pixelRatio || 2, maxRatio);
+      captureOpts.width = fullWidth;
+      captureOpts.height = fullHeight;
+      captureOpts.style = {
+        height: fullHeight + 'px',
+        maxHeight: 'none',
+        overflow: 'visible',
+      };
+    }
+
     window.htmlToImage
-      .toPng(root, { cacheBust: true, pixelRatio: pixelRatio, backgroundColor: bg })
+      .toPng(root, captureOpts)
       .then(function (dataUrl) {
-        if (!crop) {
+        // Full-page captures cover the entire document; the crop region is
+        // expressed in viewport CSS pixels so the math wouldn't line up.
+        // Treat fullPage as authoritative and return the uncropped PNG.
+        if (!crop || fullPage) {
+          delete inProgress[requestId];
           reply(requestId, { type: 'design-screenshot:result', dataUrl: dataUrl });
           return;
         }
@@ -73,6 +126,7 @@ const SCREENSHOT_SCRIPT = `
           var sw = Math.min(img.naturalWidth - sx, Math.max(0, crop.width) * scaleX);
           var sh = Math.min(img.naturalHeight - sy, Math.max(0, crop.height) * scaleY);
           if (sw < 4 || sh < 4) {
+            delete inProgress[requestId];
             reply(requestId, { type: 'design-screenshot:error', error: 'Selection too small' });
             return;
           }
@@ -81,18 +135,22 @@ const SCREENSHOT_SCRIPT = `
           canvas.height = Math.round(sh);
           var ctx = canvas.getContext('2d');
           if (!ctx) {
+            delete inProgress[requestId];
             reply(requestId, { type: 'design-screenshot:error', error: 'Canvas unsupported' });
             return;
           }
           ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+          delete inProgress[requestId];
           reply(requestId, { type: 'design-screenshot:result', dataUrl: canvas.toDataURL('image/png') });
         };
         img.onerror = function () {
+          delete inProgress[requestId];
           reply(requestId, { type: 'design-screenshot:error', error: 'Image load failed' });
         };
         img.src = dataUrl;
       })
       .catch(function (err) {
+        delete inProgress[requestId];
         reply(requestId, { type: 'design-screenshot:error', error: String(err && err.message ? err.message : err) });
       });
   }
@@ -125,6 +183,11 @@ const SCREENSHOT_SCRIPT = `
   else window.addEventListener('load', loadLib, { once: true });
 
   window.addEventListener('message', function (ev) {
+    // Only accept capture requests from our parent (the workspace app).
+    // The Sandpack iframe is cross-origin from the parent, so a sibling
+    // iframe or a popup window has no business commanding it to render
+    // a screenshot of the user's design and post it back.
+    if (ev.source !== window.parent) return;
     var data = ev.data;
     if (!data || data.type !== 'design-screenshot:request') return;
     var req = {
@@ -135,15 +198,30 @@ const SCREENSHOT_SCRIPT = `
       // replying — this is how the canvas "select area" tool works without
       // having to ship a blank parent-side capture across the postMessage gap.
       crop: data.crop && typeof data.crop === 'object' ? data.crop : null,
+      // When true, capture the FULL scroll extent of the design instead of
+      // just the visible iframe viewport. Used by the agent's self-critique
+      // screenshot so it sees the whole page, not just the first screen.
+      // Incompatible with crop (full-page capture is in document coords,
+      // crop is in viewport coords) — we ignore crop when fullPage is set.
+      fullPage: data.fullPage === true,
     };
     if (libError) { reply(req.requestId, { type: 'design-screenshot:error', error: libError }); return; }
     if (ready) runCapture(req);
-    else queue.push(req);
+    else {
+      // Deduplicate: if this requestId is already queued, drop the retry.
+      var alreadyQueued = false;
+      for (var i = 0; i < queue.length; i++) {
+        if (queue[i].requestId === req.requestId) { alreadyQueued = true; break; }
+      }
+      if (!alreadyQueued) queue.push(req);
+    }
   });
 
   // Late subscribers (e.g. an export dialog that mounts after the iframe
   // already finished booting) can ask whether they missed the :ready ping.
+  // Same parent-only restriction applies.
   window.addEventListener('message', function (ev) {
+    if (ev.source !== window.parent) return;
     if (!ev.data || ev.data.type !== 'design-screenshot:are-you-ready') return;
     if (ready) parent.postMessage({ type: 'design-screenshot:ready' }, '*');
     else if (libError) parent.postMessage({ type: 'design-screenshot:error', error: libError }, '*');

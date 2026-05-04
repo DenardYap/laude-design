@@ -1,7 +1,7 @@
 "use client";
 
-import * as React from "react";
-import { Check, MessageSquare } from "lucide-react";
+import { useMemo } from "react";
+import { Check, MessageSquare, Trash2 } from "lucide-react";
 import { match } from "ts-pattern";
 
 import {
@@ -11,14 +11,85 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@/components/ui";
+import { cn } from "@/lib/utils";
 import type { ChatSessionDTO } from "@/lib/workspace/types";
 
 interface SessionHistoryListProps {
   sessions: ChatSessionDTO[];
   activeSessionId: string | undefined;
   onSelect: (sessionId: string) => void;
+  onDelete: (sessionId: string) => void;
 }
+
+// ---------------------------------------------------------------------------
+// SessionHistoryRow — single cmdk item with title, active-check, delete
+// ---------------------------------------------------------------------------
+
+function SessionHistoryRow({
+  session,
+  isActive,
+  onSelect,
+  onDelete,
+}: {
+  session: ChatSessionDTO;
+  isActive: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <CommandItem
+      value={itemValue(session.id)}
+      onSelect={onSelect}
+      className="group gap-2 pr-1"
+    >
+      <MessageSquare className="size-3.5 shrink-0 text-ink-subtle" />
+      {/* Inner flex groups the title with the active-check so the check sits
+          flush against the visible end of the name. `min-w-0` on both the
+          group and the span is what lets `truncate` produce an ellipsis
+          inside a flex child. */}
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="min-w-0 truncate">{session.title}</span>
+        {isActive ? (
+          <Check className="size-3.5 shrink-0 text-ink-muted" />
+        ) : null}
+      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Delete ${session.title}`}
+            // cmdk uses pointerdown to drive selection; stopping it here
+            // prevents the row's onSelect from firing when the user clicks
+            // the trash button.
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onDelete();
+            }}
+            className={cn(
+              "inline-flex size-6 shrink-0 items-center justify-center rounded text-ink-muted opacity-0 transition-opacity",
+              "hover:bg-destructive/10 hover:text-destructive",
+              "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "group-hover:opacity-100 group-aria-selected:opacity-100",
+            )}
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">Delete session</TooltipContent>
+      </Tooltip>
+    </CommandItem>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SessionHistoryList — public API
+// ---------------------------------------------------------------------------
 
 // Bucket boundaries are computed once per render against `now`. We pre-bucket
 // the sessions so `cmdk` only filters by title — cmdk is the source of truth
@@ -27,14 +98,15 @@ export function SessionHistoryList({
   sessions,
   activeSessionId,
   onSelect,
+  onDelete,
 }: SessionHistoryListProps) {
-  const groups = React.useMemo(() => groupByRecency(sessions), [sessions]);
+  const groups = useMemo(() => groupByRecency(sessions), [sessions]);
 
   // Map every cmdk `value` (which must be unique per item) back to the title
   // we want to match against. cmdk dedupes items by value, so we encode the
   // session id into the value to keep them distinct, and use this map to
   // filter on the title only.
-  const titleByValue = React.useMemo(() => {
+  const titleByValue = useMemo(() => {
     const map = new Map<string, string>();
     for (const group of groups) {
       for (const s of group.sessions) {
@@ -59,18 +131,13 @@ export function SessionHistoryList({
           group.sessions.length === 0 ? null : (
             <CommandGroup key={group.label} heading={group.label}>
               {group.sessions.map((s) => (
-                <CommandItem
+                <SessionHistoryRow
                   key={s.id}
-                  value={itemValue(s.id)}
+                  session={s}
+                  isActive={s.id === activeSessionId}
                   onSelect={() => onSelect(s.id)}
-                  className="gap-2"
-                >
-                  <MessageSquare className="size-3.5 shrink-0 text-ink-subtle" />
-                  <span className="flex-1 truncate">{s.title}</span>
-                  {s.id === activeSessionId ? (
-                    <Check className="size-3.5 shrink-0 text-ink-muted" />
-                  ) : null}
-                </CommandItem>
+                  onDelete={() => onDelete(s.id)}
+                />
               ))}
             </CommandGroup>
           ),
@@ -80,24 +147,27 @@ export function SessionHistoryList({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 // Prefix keeps the cmdk value distinct from any other Command consumer that
-// might share the DOM (defensive — currently this list lives in its own popover).
+// might share the DOM (defensive — currently this list lives in its own
+// popover).
 function itemValue(sessionId: string): string {
   return `session:${sessionId}`;
 }
 
 interface RecencyGroup {
-  // Stable key used to render and to disambiguate cmdk values across groups.
   label: string;
   sessions: ChatSessionDTO[];
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Group sessions by `updatedAt` against fixed buckets. We use calendar-day
-// boundaries for "Today" and "Yesterday" so the labels match user intuition;
-// older buckets fall back to elapsed-time so a 5-day-old session reads as
-// "5 days ago" regardless of the time of day it was last touched.
+// Group sessions by `updatedAt` against fixed buckets. Calendar-day
+// boundaries for "Today"/"Yesterday"; older buckets use elapsed-time so a
+// 5-day-old session reads as "5 days ago" regardless of the time of day.
 function groupByRecency(sessions: ChatSessionDTO[]): RecencyGroup[] {
   const sorted = [...sessions].sort(
     (a, b) =>
@@ -117,7 +187,7 @@ function groupByRecency(sessions: ChatSessionDTO[]): RecencyGroup[] {
 
   for (const session of sorted) {
     const t = new Date(session.updatedAt).getTime();
-    const label = bucketLabel(t, startOfToday, startOfYesterday, now.getTime());
+    const label = bucketLabel(t, startOfToday, startOfYesterday);
     if (!buckets[label]) {
       buckets[label] = [];
       order.push(label);
@@ -132,13 +202,11 @@ function bucketLabel(
   t: number,
   startOfToday: number,
   startOfYesterday: number,
-  nowMs: number,
 ): string {
   if (t >= startOfToday) return "Today";
   if (t >= startOfYesterday) return "Yesterday";
 
-  const elapsed = nowMs - t;
-  const days = Math.floor(elapsed / DAY_MS);
+  const days = Math.ceil((startOfToday - t) / DAY_MS);
 
   return match(days)
     .when(

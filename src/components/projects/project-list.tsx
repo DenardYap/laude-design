@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useMemo, useState } from 'react';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui";
 import { match } from "ts-pattern";
 
-import { useScopeFilters } from "@/stores/filters-store";
+import { useScopeQuery, useScopeDimension } from "@/stores/filters-store";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { deleteProject } from "@/server/actions/projects";
 
@@ -46,13 +46,14 @@ interface ProjectListProps {
 }
 
 export function ProjectList({ projects }: ProjectListProps) {
-  const { query, filters } = useScopeFilters("projects");
+  const { query } = useScopeQuery("projects");
+  const { values: recencyValues } = useScopeDimension("projects", "recency");
   const router = useRouter();
-  const [pendingDelete, setPendingDelete] = React.useState<ProjectListItem | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ProjectListItem | null>(null);
 
-  const filtered = React.useMemo(() => {
+  const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const activeBuckets = new Set(filters as RecencyBucket[]);
+    const activeBuckets = new Set(recencyValues as RecencyBucket[]);
     const now = Date.now();
     return projects.filter((p) => {
       if (q && !p.name.toLowerCase().includes(q)) return false;
@@ -60,10 +61,10 @@ export function ProjectList({ projects }: ProjectListProps) {
         return false;
       return true;
     });
-  }, [projects, query, filters]);
+  }, [projects, query, recencyValues]);
 
   if (filtered.length === 0) {
-    const reason = match({ hasQuery: query.trim().length > 0, hasFilter: filters.length > 0 })
+    const reason = match({ hasQuery: query.trim().length > 0, hasFilter: recencyValues.length > 0 })
       .with({ hasQuery: true, hasFilter: true }, () => "No projects match your search and filters.")
       .with({ hasQuery: true, hasFilter: false }, () => "No projects match your search.")
       .with({ hasQuery: false, hasFilter: true }, () => "No projects in the selected time range.")

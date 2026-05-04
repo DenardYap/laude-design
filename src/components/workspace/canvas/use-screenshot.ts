@@ -1,6 +1,8 @@
 "use client";
 
-import * as React from "react";
+import { useCallback } from 'react';
+import type { RefObject } from 'react';
+
 import { toast } from "sonner";
 
 import { uploadAttachment } from "@/lib/api/uploads";
@@ -33,13 +35,13 @@ const PIXEL_RATIO = 2;
 
 export function useCanvasScreenshot(
   projectId: string,
-  ref: React.RefObject<HTMLDivElement | null>,
+  ref: RefObject<HTMLDivElement | null>,
 ): CanvasScreenshot {
   const sessionId = useWorkspaceStore((s) => s.activeSessionByProject[projectId]);
   const addAttachment = useWorkspaceStore((s) => s.addPendingAttachment);
   const setTool = useWorkspaceStore((s) => s.setTool);
 
-  const attach = React.useCallback(
+  const attach = useCallback(
     async (dataUrl: string) => {
       if (!sessionId) {
         toast.error("Open a session first");
@@ -53,7 +55,7 @@ export function useCanvasScreenshot(
     [projectId, sessionId, addAttachment],
   );
 
-  const captureFull = React.useCallback(async () => {
+  const captureFull = useCallback(async () => {
     if (!ref.current) return;
     if (!sessionId) {
       toast.error("Open a session first");
@@ -80,7 +82,7 @@ export function useCanvasScreenshot(
     }
   }, [ref, sessionId, attach, setTool]);
 
-  const captureArea = React.useCallback(
+  const captureArea = useCallback(
     async (rect: ScreenshotRect) => {
       if (!ref.current) {
         setTool("idle");
@@ -113,10 +115,9 @@ export function useCanvasScreenshot(
         return;
       }
 
-      // The canvas applies CSS `transform: scale(zoom)` so iframeRect is the
-      // *visual* rect (V × zoom) while the iframe's internal CSS pixel size
-      // is V. The screenshot script crops in iframe-local CSS pixels, so we
-      // have to divide the viewport-pixel offsets by the current zoom.
+      // captureRef has `transform: scale(zoom)`, so iframeRect is the visual
+      // rect (CSS × zoom). The screenshot script crops in iframe-local CSS
+      // pixels, so divide the viewport-pixel offsets by zoom.
       const zoom = useWorkspaceStore.getState().zoom;
 
       try {
@@ -143,7 +144,7 @@ export function useCanvasScreenshot(
     [ref, sessionId, attach, setTool],
   );
 
-  const startAreaCapture = React.useCallback(() => {
+  const startAreaCapture = useCallback(() => {
     if (!sessionId) {
       toast.error("Open a session first");
       return;

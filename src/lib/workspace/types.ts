@@ -147,21 +147,47 @@ export interface FolderDTO {
   parentId: string | null;
 }
 
-// Cumulative usage stats for a single chat session. Mirrors the persisted
-// columns on `ChatSession`. Token counts come from the AI SDK's reported
-// usage (post-stream); cost is computed from `src/lib/ai/pricing.ts` and
-// only includes the main chat model (auxiliary calls are excluded).
+// Per-session usage stats surfaced in the chatbox popover.
+//
+// Decomposition:
+//   - `currentInputTokens`: the input the model was billed for on the most
+//     recent step (= the live prompt size). Drives the ring's "context
+//     window fill" indicator — which MUST shrink visibly when rolling
+//     summarization fires, hence using the live value here.
+//   - `lifetimeFoldedTokens`: cumulative size of messages the rolling
+//     summarizer has folded into the summary. Combined with
+//     `currentInputTokens` via `getLifetimeInputTokens` to give the
+//     popover's "Input tokens" line a monotonic value (= what
+//     `currentInputTokens` would be if summarization had never fired).
+//   - `lifetimeOutputTokens`: every assistant token ever generated in this
+//     session. Strictly monotonically increasing across turns.
+//   - `totalCostUsd`: lifetime cumulative cost. Cost MUST be cumulative
+//     because each step legitimately bills new tokens (re-sent history is
+//     billed again every turn unless prompt caching catches it).
 export interface SessionUsage {
-  cumulativeInputTokens: number;
-  cumulativeOutputTokens: number;
+  currentInputTokens: number;
+  lifetimeFoldedTokens: number;
+  lifetimeOutputTokens: number;
   summarizedCount: number;
   totalCostUsd: number;
+}
+
+/**
+ * "Input tokens" displayed in the chatbox popover — what the live prompt
+ * would weigh if rolling summarization had never folded older messages
+ * into a summary. Strictly monotonic across the session lifetime: each
+ * turn either grows `currentInputTokens` (more messages added) or grows
+ * `lifetimeFoldedTokens` (summarization fired and stashed the size of
+ * the folded slice), so the sum never decreases. Pre-first-summarization
+ * this just equals `currentInputTokens`.
+ */
+export function getLifetimeInputTokens(usage: SessionUsage): number {
+  return usage.currentInputTokens + usage.lifetimeFoldedTokens;
 }
 
 export interface ChatSessionDTO {
   id: string;
   title: string;
-  order: number;
   // ISO timestamp of last activity (used to group sessions by recency).
   updatedAt: string;
   // True when the session has no messages — used to dedupe "New Session" tabs

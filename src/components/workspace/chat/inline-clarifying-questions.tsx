@@ -1,27 +1,25 @@
 "use client";
 
-import * as React from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, HelpCircle, Loader2, X } from "lucide-react";
+import { useEffect } from "react";
+import type { ReactNode } from "react";
+import { HelpCircle, Loader2 } from "lucide-react";
 import { match } from "ts-pattern";
 
-import { Button } from "@/components/ui";
-import { useWorkspaceStore } from "@/stores/workspace-store";
-import type {
-  AnswerValue,
-  ClarifyingQuestionItem,
-  ClarifyingQuestionSetDTO,
-} from "@/app/api/sessions/[sessionId]/questions/route";
+import type { ClarifyingQuestionSetDTO } from "@/app/api/sessions/[sessionId]/questions/route";
+import type { ClarifyingQuestionItem } from "@/app/api/sessions/[sessionId]/questions/route";
+import { useQuestionSets } from "@/components/workspace/chat/hooks/use-question-sets";
 import {
-  QuestionBlock,
-  allAnswered,
-  synthesizeAnswerMessage,
-  synthesizeSkipMessage,
-  useQuestionSets,
-} from "@/components/workspace/chat/questions-pane";
+  QuestionSetBody,
+  ReadOnlyBody,
+} from "@/components/workspace/chat/question-set-body";
 
 interface InlineClarifyingQuestionsProps {
   sessionId: string;
+  /**
+   * AI SDK tool-part state. `input-streaming` means the model is still
+   * filling in the questions; anything else means the input is finalized.
+   */
+  state?: string;
   /** Question set id from the tool call's output. Undefined while the tool is still streaming. */
   questionSetId?: string;
   /** Pulled from the tool call's input so the questions render before output lands. */
@@ -29,60 +27,11 @@ interface InlineClarifyingQuestionsProps {
   fallbackItems?: ClarifyingQuestionItem[];
 }
 
-export function InlineClarifyingQuestions({
-  sessionId,
-  questionSetId,
-  fallbackRationale,
-  fallbackItems,
-}: InlineClarifyingQuestionsProps) {
-  const { data: sets } = useQuestionSets(sessionId);
-  const set = questionSetId
-    ? (sets ?? []).find((s) => s.id === questionSetId)
-    : undefined;
+// ---------------------------------------------------------------------------
+// QuestionCard — surface container
+// ---------------------------------------------------------------------------
 
-  // While the tool input is still streaming we don't have a `set` from the
-  // server yet — fall back to whatever input has streamed in so far. This
-  // mirrors the inline plan checklist's streaming behavior.
-  const fallbackComplete =
-    fallbackItems?.every(
-      (q) => q && Array.isArray(q.options) && q.options.length >= 2 && q.prompt,
-    ) ?? false;
-
-  if (!set && !fallbackComplete) {
-    return (
-      <div className="my-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs text-ink-subtle">
-        <Loader2 className="size-3 animate-spin" />
-        Drafting questions…
-      </div>
-    );
-  }
-
-  // If the server has the set, use it as source of truth (status, items,
-  // existing answers). Otherwise fall back to the streamed input — but only
-  // for display; we can't submit answers until the set exists in the DB.
-  const items: ClarifyingQuestionItem[] =
-    set?.questions.items ?? fallbackItems ?? [];
-  const rationale = set?.questions.rationale ?? fallbackRationale ?? null;
-
-  return (
-    <Card>
-      <Header
-        rationale={rationale}
-        status={set?.status ?? "OPEN"}
-      />
-      {set ? (
-        <QuestionSetBody
-          sessionId={sessionId}
-          set={set}
-        />
-      ) : (
-        <ReadOnlyBody items={items} />
-      )}
-    </Card>
-  );
-}
-
-function Card({ children }: { children: React.ReactNode }) {
+function QuestionCard({ children }: { children: ReactNode }) {
   return (
     <div className="my-2 rounded-2xl border border-border bg-surface p-3.5">
       {children}
@@ -90,7 +39,11 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Header({
+// ---------------------------------------------------------------------------
+// QuestionHeader — title row with optional status badge
+// ---------------------------------------------------------------------------
+
+function QuestionHeader({
   rationale,
   status,
 }: {
@@ -131,123 +84,60 @@ function Header({
   );
 }
 
-function QuestionSetBody({
+// ---------------------------------------------------------------------------
+// InlineClarifyingQuestions — public API
+// ---------------------------------------------------------------------------
+
+export function InlineClarifyingQuestions({
   sessionId,
-  set,
-}: {
-  sessionId: string;
-  set: ClarifyingQuestionSetDTO;
-}) {
-  const items = set.questions.items;
-  const queryClient = useQueryClient();
-  const enqueueChatMessage = useWorkspaceStore((s) => s.enqueueChatMessage);
+  state,
+  questionSetId,
+  fallbackRationale,
+  fallbackItems,
+}: InlineClarifyingQuestionsProps) {
+  const { data: sets, refetch } = useQuestionSets(sessionId);
+  const set = questionSetId
+    ? (sets ?? []).find((s) => s.id === questionSetId)
+    : undefined;
 
-  // Default each question to its recommended option (or first option if none),
-  // unless the set has already been answered — then mirror the saved answers.
-  const [answers, setAnswers] = React.useState<Record<string, AnswerValue>>(() => {
-    if (set.answers) return set.answers;
-    const init: Record<string, AnswerValue> = {};
-    for (const q of items) {
-      const recommended = q.options.find((o) => o.recommended);
-      const fallback = q.options[0];
-      const pick = recommended ?? fallback;
-      if (pick) init[q.id] = { kind: "option", optionId: pick.id };
-    }
-    return init;
-  });
+  // If the tool output has given us a questionSetId but the set hasn't
+  // appeared in the cache yet (streaming ended before the last poll ran),
+  // keep refetching until the row shows up.
+  useEffect(() => {
+    if (!questionSetId || set) return;
+    const id = setInterval(() => void refetch(), 800);
+    return () => clearInterval(id);
+  }, [questionSetId, set, refetch]);
 
-  const submit = useMutation({
-    mutationFn: async (action: "answer" | "dismiss") => {
-      const res = await fetch(`/api/sessions/${sessionId}/questions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          setId: set.id,
-          action,
-          answers: action === "answer" ? answers : undefined,
-        }),
-      });
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(err.error ?? "Failed");
-      }
-      return action;
-    },
-    onSuccess: (action) => {
-      void queryClient.invalidateQueries({
-        queryKey: ["session-questions", sessionId],
-      });
-      const message =
-        action === "answer"
-          ? synthesizeAnswerMessage(items, answers)
-          : synthesizeSkipMessage(items);
-      enqueueChatMessage(sessionId, message);
-    },
-  });
+  // The single source of truth for "are we still drafting?" is the AI SDK
+  // tool-part state. While `state === "input-streaming"`, the partial input
+  // walks through shapes like `[] → [{}] → [{partial}] → [{complete},
+  // {partial}]`, so trying to derive "is it ready yet?" from the input shape
+  // makes the loader flicker. Once the part transitions past streaming (or we
+  // already have the persisted `set`), we commit — and never flip back.
+  const isInputStreaming = state === "input-streaming";
+  const items: ClarifyingQuestionItem[] =
+    set?.questions.items ?? fallbackItems ?? [];
 
-  const isOpen = set.status === "OPEN";
-  const rationale = set.questions.rationale;
-
-  return (
-    <div className="flex flex-col gap-4">
-      {rationale ? (
-        <p className="text-xs italic text-ink-muted">{rationale}</p>
-      ) : null}
-      <div className="flex flex-col gap-4">
-        {items.map((q) => (
-          <QuestionBlock
-            key={q.id}
-            question={q}
-            value={answers[q.id]}
-            disabled={!isOpen || submit.isPending}
-            onChange={(next) =>
-              setAnswers((prev) => ({ ...prev, [q.id]: next }))
-            }
-          />
-        ))}
+  if (!set && (isInputStreaming || items.length === 0)) {
+    return (
+      <div className="my-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs text-ink-subtle">
+        <Loader2 className="size-3 animate-spin" />
+        Drafting questions…
       </div>
-      {isOpen ? (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => submit.mutate("dismiss")}
-            disabled={submit.isPending}
-          >
-            <X className="size-3.5" />
-            Skip
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => submit.mutate("answer")}
-            disabled={submit.isPending || !allAnswered(items, answers)}
-          >
-            <Check className="size-3.5" />
-            Send answers
-          </Button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
+    );
+  }
 
-// Rendered while the tool input is still streaming and the DB row doesn't
-// exist yet — there's no set id to submit against, so the controls are
-// disabled placeholders. As soon as the input finishes streaming and the
-// tool's `execute` resolves, the parent re-renders with `set` populated and
-// `QuestionSetBody` takes over.
-function ReadOnlyBody({ items }: { items: ClarifyingQuestionItem[] }) {
+  const rationale = set?.questions.rationale ?? fallbackRationale ?? null;
+
   return (
-    <div className="flex flex-col gap-4">
-      {items.map((q) => (
-        <QuestionBlock
-          key={q.id}
-          question={q}
-          value={undefined}
-          disabled
-          onChange={() => {}}
-        />
-      ))}
-    </div>
+    <QuestionCard>
+      <QuestionHeader rationale={rationale} status={set?.status ?? "OPEN"} />
+      {set ? (
+        <QuestionSetBody sessionId={sessionId} set={set} />
+      ) : (
+        <ReadOnlyBody items={items} />
+      )}
+    </QuestionCard>
   );
 }

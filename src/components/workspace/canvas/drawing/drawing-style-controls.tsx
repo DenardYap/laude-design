@@ -1,5 +1,7 @@
 "use client";
 
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
+
 import { match } from "ts-pattern";
 
 import { cn } from "@/lib/utils";
@@ -201,7 +203,7 @@ function Section({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
@@ -258,7 +260,7 @@ function Chip({
   onClick,
   children,
   ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
   active?: boolean;
 }) {
   return (

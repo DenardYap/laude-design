@@ -25,7 +25,9 @@ export function encryptSecret(plaintext: string): string {
 export function decryptSecret(payload: string): string {
   const key = getKey();
   const [ivB64, tagB64, ctB64] = payload.split(":");
-  if (!ivB64 || !tagB64 || !ctB64) throw new Error("Malformed ciphertext payload");
+  if (ivB64 === undefined || tagB64 === undefined || ctB64 === undefined) {
+    throw new Error("Malformed ciphertext payload");
+  }
   const iv = Buffer.from(ivB64, "base64");
   const tag = Buffer.from(tagB64, "base64");
   const ct = Buffer.from(ctB64, "base64");

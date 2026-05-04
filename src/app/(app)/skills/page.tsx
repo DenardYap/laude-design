@@ -1,10 +1,9 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
-import { SearchBar } from "@/components/shared/search-bar";
 import { SkillUploader } from "@/components/skills/skill-uploader";
-import { MySkills } from "@/components/skills/my-skills";
-import { PublicSkills } from "@/components/skills/public-skills";
+import { MySkillsTable } from "@/components/skills/my-skills-table";
+import { PublicSkillsTable } from "@/components/skills/public-skills-table";
 
 export const metadata = { title: "Skills · Laude Design" };
 
@@ -15,6 +14,10 @@ export default async function SkillsPage() {
     db.skill.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: "desc" },
+      // Hard ceiling so a runaway library never DoSes the page render. The
+      // table paginates client-side over whatever we return; if a single user
+      // ever reaches the cap we'll need to switch to server-driven paging.
+      take: 500,
       select: {
         id: true,
         name: true,
@@ -22,38 +25,41 @@ export default async function SkillsPage() {
         content: true,
         isPublic: true,
         appliedByDefault: true,
-        downloads: true,
         updatedAt: true,
-        _count: { select: { overrides: true } },
+        // Provenance for cloned skills. `originalSkill` is null when the user
+        // authored the skill from scratch, in which case the row's Author cell
+        // reads "you".
+        originalSkill: { select: { user: { select: { name: true } } } },
       },
     }),
     db.skill.findMany({
       where: { isPublic: true },
-      orderBy: [{ downloads: "desc" }, { updatedAt: "desc" }],
+      // Default sort by saves so the popular library lands first; the table
+      // exposes a sort menu to override this client-side.
+      orderBy: [{ saves: "desc" }, { updatedAt: "desc" }],
+      // Same client-side pagination model as `mine`. 500 is the soft cap on
+      // how big the public library can grow before we have to move filtering,
+      // sorting, and pagination to the server.
+      take: 500,
       select: {
         id: true,
+        userId: true,
         name: true,
         description: true,
         content: true,
-        downloads: true,
+        saves: true,
         likes: true,
         updatedAt: true,
         user: { select: { name: true } },
-        likedBy: {
-          where: { userId: user.id },
-          select: { userId: true },
-          take: 1,
-        },
       },
-      take: 50,
     }),
   ]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Skills"
-        description="Markdown or text files the agent can use as context. Share publicly to help others."
+        description="Markdown or text files the agent can use as context. Click a skill to edit or share it."
         actions={<SkillUploader />}
       />
 
@@ -63,34 +69,29 @@ export default async function SkillsPage() {
           <TabsTrigger value="public">Public library</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="mine" className="space-y-4">
-          <SearchBar scope="skills:mine" placeholder="Search your skills..." className="max-w-md" />
-          <MySkills
-            skills={mine.map(({ content, _count, ...s }) => ({
+        <TabsContent value="mine">
+          <MySkillsTable
+            skills={mine.map(({ content, originalSkill, ...s }) => ({
               ...s,
               charCount: content.length,
-              overrideCount: _count.overrides,
+              authorName: originalSkill?.user?.name ?? null,
+              isClone: originalSkill !== null,
             }))}
           />
         </TabsContent>
 
-        <TabsContent value="public" className="space-y-4">
-          <SearchBar
-            scope="skills:public"
-            placeholder="Search public skills..."
-            className="max-w-md"
-          />
-          <PublicSkills
+        <TabsContent value="public">
+          <PublicSkillsTable
             skills={publicSkills.map((s) => ({
               id: s.id,
               name: s.name,
               description: s.description,
               charCount: s.content.length,
-              downloads: s.downloads,
+              saves: s.saves,
               likes: s.likes,
-              likedByMe: s.likedBy.length > 0,
               updatedAt: s.updatedAt,
               authorName: s.user?.name ?? null,
+              isMine: s.userId === user.id,
             }))}
           />
         </TabsContent>

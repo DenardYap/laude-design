@@ -1,23 +1,26 @@
 "use client";
 
+import { useCallback } from 'react';
 import { create } from "zustand";
 
 export type FilterScope = "projects" | "skills:mine" | "skills:public" | "api-keys";
 
 interface ScopeState {
   query: string;
-  filters: string[];
+  /** Keyed by dimension name (e.g. "recency", "size", "creator"). */
+  dimensions: Record<string, string[]>;
 }
 
 interface FiltersState {
   scopes: Record<FilterScope, ScopeState>;
   setQuery: (scope: FilterScope, query: string) => void;
-  setFilters: (scope: FilterScope, filters: string[]) => void;
-  toggleFilter: (scope: FilterScope, value: string) => void;
-  reset: (scope: FilterScope) => void;
+  setDimension: (scope: FilterScope, dimension: string, values: string[]) => void;
+  toggleValue: (scope: FilterScope, dimension: string, value: string) => void;
+  resetDimension: (scope: FilterScope, dimension: string) => void;
+  resetAll: (scope: FilterScope) => void;
 }
 
-const empty = (): ScopeState => ({ query: "", filters: [] });
+const empty = (): ScopeState => ({ query: "", dimensions: {} });
 
 export const useFiltersStore = create<FiltersState>((set) => ({
   scopes: {
@@ -30,34 +33,87 @@ export const useFiltersStore = create<FiltersState>((set) => ({
     set((s) => ({
       scopes: { ...s.scopes, [scope]: { ...s.scopes[scope], query } },
     })),
-  setFilters: (scope, filters) =>
+  setDimension: (scope, dimension, values) =>
     set((s) => ({
-      scopes: { ...s.scopes, [scope]: { ...s.scopes[scope], filters } },
+      scopes: {
+        ...s.scopes,
+        [scope]: {
+          ...s.scopes[scope],
+          dimensions: { ...s.scopes[scope].dimensions, [dimension]: values },
+        },
+      },
     })),
-  toggleFilter: (scope, value) =>
+  toggleValue: (scope, dimension, value) =>
     set((s) => {
-      const current = s.scopes[scope].filters;
+      const current = s.scopes[scope].dimensions[dimension] ?? [];
       const next = current.includes(value)
         ? current.filter((v) => v !== value)
         : [...current, value];
-      return { scopes: { ...s.scopes, [scope]: { ...s.scopes[scope], filters: next } } };
+      return {
+        scopes: {
+          ...s.scopes,
+          [scope]: {
+            ...s.scopes[scope],
+            dimensions: { ...s.scopes[scope].dimensions, [dimension]: next },
+          },
+        },
+      };
     }),
-  reset: (scope) =>
-    set((s) => ({ scopes: { ...s.scopes, [scope]: empty() } })),
+  resetDimension: (scope, dimension) =>
+    set((s) => {
+      const next = { ...s.scopes[scope].dimensions };
+      delete next[dimension];
+      return {
+        scopes: { ...s.scopes, [scope]: { ...s.scopes[scope], dimensions: next } },
+      };
+    }),
+  resetAll: (scope) => set((s) => ({ scopes: { ...s.scopes, [scope]: empty() } })),
 }));
 
-export function useScopeFilters(scope: FilterScope) {
-  const state = useFiltersStore((s) => s.scopes[scope]);
+const EMPTY_VALUES: string[] = [];
+
+/** Subscribe to the current search query for a scope. */
+export function useScopeQuery(scope: FilterScope) {
+  const query = useFiltersStore((s) => s.scopes[scope].query);
   const setQuery = useFiltersStore((s) => s.setQuery);
-  const setFilters = useFiltersStore((s) => s.setFilters);
-  const toggleFilter = useFiltersStore((s) => s.toggleFilter);
-  const reset = useFiltersStore((s) => s.reset);
   return {
-    query: state.query,
-    filters: state.filters,
-    setQuery: (q: string) => setQuery(scope, q),
-    setFilters: (f: string[]) => setFilters(scope, f),
-    toggleFilter: (v: string) => toggleFilter(scope, v),
-    reset: () => reset(scope),
+    query,
+    setQuery: useCallback((q: string) => setQuery(scope, q), [scope, setQuery]),
   };
+}
+
+/** Subscribe to a specific filter dimension; only re-renders when its values change. */
+export function useScopeDimension(scope: FilterScope, dimension: string) {
+  const values = useFiltersStore(
+    (s) => s.scopes[scope].dimensions[dimension] ?? EMPTY_VALUES,
+  );
+  const setDimension = useFiltersStore((s) => s.setDimension);
+  const toggleValue = useFiltersStore((s) => s.toggleValue);
+  const resetDimension = useFiltersStore((s) => s.resetDimension);
+  return {
+    values,
+    setValues: useCallback(
+      (next: string[]) => setDimension(scope, dimension, next),
+      [scope, dimension, setDimension],
+    ),
+    toggle: useCallback(
+      (value: string) => toggleValue(scope, dimension, value),
+      [scope, dimension, toggleValue],
+    ),
+    reset: useCallback(
+      () => resetDimension(scope, dimension),
+      [scope, dimension, resetDimension],
+    ),
+  };
+}
+
+/** Subscribe to the entire dimensions map for a scope. Use sparingly. */
+export function useScopeDimensions(scope: FilterScope) {
+  return useFiltersStore((s) => s.scopes[scope].dimensions);
+}
+
+/** Reset everything (query + all dimensions) for a scope. */
+export function useResetScope(scope: FilterScope) {
+  const resetAll = useFiltersStore((s) => s.resetAll);
+  return useCallback(() => resetAll(scope), [scope, resetAll]);
 }

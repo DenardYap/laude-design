@@ -1,14 +1,14 @@
-import * as React from "react";
-
+import { forwardRef } from 'react';
+import type { HTMLAttributes } from 'react';
 import { cn } from "@/lib/utils";
 
-export interface EyebrowProps extends React.HTMLAttributes<HTMLParagraphElement> {}
+export interface EyebrowProps extends HTMLAttributes<HTMLParagraphElement> {}
 
 /**
  * Small uppercase label that sits above a heading or section.
  * Use sparingly — gives a section a category without competing with the title.
  */
-const Eyebrow = React.forwardRef<HTMLParagraphElement, EyebrowProps>(
+const Eyebrow = forwardRef<HTMLParagraphElement, EyebrowProps>(
   ({ className, ...props }, ref) => (
     <p
       ref={ref}

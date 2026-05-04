@@ -1,6 +1,8 @@
 "use client";
 
-import * as React from "react";
+import { useEffect, useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
+
 import {
   ArrowUpRight,
   Circle,
@@ -43,7 +45,7 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 interface DrawingShapeBarProps {
   projectId: string;
   /** Used to position the bar over the design viewport (not the chat pane). */
-  viewportRef: React.RefObject<HTMLDivElement | null>;
+  viewportRef: RefObject<HTMLDivElement | null>;
   onSend: () => void;
   sending: boolean;
   /**
@@ -54,7 +56,7 @@ interface DrawingShapeBarProps {
   onRequestExit: () => void;
 }
 
-const SHAPE_TOOLS: { tool: DrawTool; icon: React.ReactNode; label: string; key: string }[] = [
+const SHAPE_TOOLS: { tool: DrawTool; icon: ReactNode; label: string; key: string }[] = [
   { tool: "none", icon: <MousePointer className="size-4" />, label: "Select", key: "1" },
   { tool: "rectangle", icon: <Square className="size-4" />, label: "Rectangle", key: "2" },
   { tool: "diamond", icon: <Diamond className="size-4" />, label: "Diamond", key: "3" },
@@ -103,8 +105,8 @@ export function DrawingShapeBar({
   // because there's no single event that catches every relevant layout
   // change (resize observers don't fire on parent flex resizes from
   // react-resizable-panels, etc).
-  const [bounds, setBounds] = React.useState<DOMRect | null>(null);
-  React.useEffect(() => {
+  const [bounds, setBounds] = useState<DOMRect | null>(null);
+  useEffect(() => {
     if (!active) {
       setBounds(null);
       return;
@@ -130,7 +132,7 @@ export function DrawingShapeBar({
   // active so we don't conflict with the rest of the app. Inputs/textareas
   // are exempted so the user can still type (e.g. in chat) without losing
   // their drawing.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target;
@@ -274,7 +276,7 @@ export function DrawingShapeBar({
 interface ToolButtonProps {
   label: string;
   shortcut?: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   active?: boolean;
   disabled?: boolean;
   onClick: () => void;

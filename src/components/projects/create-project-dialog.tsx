@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useState, useTransition } from 'react';
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,8 +23,8 @@ import { ProjectSchema, type ProjectInput } from "@/lib/validators";
 import { createProject } from "@/server/actions/projects";
 
 export function CreateProjectDialog() {
-  const [open, setOpen] = React.useState(false);
-  const [pending, startTransition] = React.useTransition();
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   const form = useForm<ProjectInput>({

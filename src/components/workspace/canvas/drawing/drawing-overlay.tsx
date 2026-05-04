@@ -1,6 +1,8 @@
 "use client";
 
-import * as React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent, WheelEvent } from 'react';
+
 import { match, P } from "ts-pattern";
 
 import {
@@ -42,25 +44,22 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
   const shapes = useDrawingStore(selectShapes(projectId));
   const commit = useDrawingStore((s) => s.commit);
   const eraseAt = useDrawingStore((s) => s.eraseAt);
-  // Canvas zoom is applied to the captureRef wrapper as a CSS `transform:
-  // scale()`, which means the SVG's getBoundingClientRect returns the
-  // *visual* size (V × zoom), not its CSS userspace size. We undo the scale
-  // when computing pointer coordinates so shapes are stored against the
-  // unscaled iframe coordinate system — then they stay glued to the
-  // underlying design when the user changes zoom.
+  // captureRef has `transform: scale(zoom)`, so getBoundingClientRect on the
+  // SVG returns visual (post-transform) dimensions = CSS × zoom. Divide by
+  // zoom to convert back to iframe CSS pixels where shapes are stored.
   const zoom = useWorkspaceStore((s) => s.zoom);
 
-  const svgRef = React.useRef<SVGSVGElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   // Draft shape lives in local state so per-frame mousemove updates don't
   // touch the global store (which would push a history snapshot per pixel).
-  const [draft, setDraft] = React.useState<Shape | null>(null);
-  const draftRef = React.useRef<Shape | null>(null);
-  React.useEffect(() => {
+  const [draft, setDraft] = useState<Shape | null>(null);
+  const draftRef = useRef<Shape | null>(null);
+  useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
 
   // Track erase state so we can group an eraser stroke into one history entry.
-  const erasingRef = React.useRef(false);
+  const erasingRef = useRef(false);
 
   // The overlay is mounted permanently inside the design so previously-drawn
   // shapes stay visible even after the user leaves Draw mode. But it must
@@ -71,8 +70,8 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
   const workspaceTool = useWorkspaceStore((s) => s.tool);
   const interactive = workspaceTool === "draw" && tool !== "none";
 
-  const localPoint = React.useCallback(
-    (e: PointerEvent | React.PointerEvent): Point | null => {
+  const localPoint = useCallback(
+    (e: PointerEvent | PointerEvent): Point | null => {
       const svg = svgRef.current;
       if (!svg) return null;
       const rect = svg.getBoundingClientRect();
@@ -84,8 +83,8 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
     [zoom],
   );
 
-  const handlePointerDown = React.useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
+  const handlePointerDown = useCallback(
+    (e: PointerEvent<SVGSVGElement>) => {
       if (!interactive) return;
       if (e.button !== 0) return;
       const p = localPoint(e);
@@ -165,8 +164,8 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
     [interactive, tool, style, projectId, eraseAt, localPoint],
   );
 
-  const handlePointerMove = React.useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
+  const handlePointerMove = useCallback(
+    (e: PointerEvent<SVGSVGElement>) => {
       if (!interactive) return;
       const p = localPoint(e);
       if (!p) return;
@@ -202,7 +201,7 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
     [interactive, tool, projectId, eraseAt, localPoint],
   );
 
-  const finishDraft = React.useCallback(() => {
+  const finishDraft = useCallback(() => {
     erasingRef.current = false;
     const current = draftRef.current;
     if (!current) return;
@@ -233,8 +232,8 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
     if (normalized) commit(projectId, normalized);
   }, [projectId, commit]);
 
-  const handlePointerUp = React.useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
+  const handlePointerUp = useCallback(
+    (e: PointerEvent<SVGSVGElement>) => {
       svgRef.current?.releasePointerCapture(e.pointerId);
       finishDraft();
     },
@@ -252,8 +251,8 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
   // viewport-level handler in `useCanvasWheelZoom` consumes it to step the
   // canvas zoom. We bail out here so we don't simultaneously scroll the
   // iframe while the user is trying to zoom.
-  const handleWheel = React.useCallback(
-    (e: React.WheelEvent<SVGSVGElement>) => {
+  const handleWheel = useCallback(
+    (e: WheelEvent<SVGSVGElement>) => {
       if (!interactive) return;
       if (e.ctrlKey || e.metaKey) return;
       const captureEl = svgRef.current?.parentElement ?? null;
@@ -281,8 +280,8 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
 
   // Render committed shapes + the live draft on top so the user sees what
   // they're drawing in real time.
-  const drawnCommitted = React.useMemo(() => shapes.map(drawShape), [shapes]);
-  const drawnDraft = React.useMemo(
+  const drawnCommitted = useMemo(() => shapes.map(drawShape), [shapes]);
+  const drawnDraft = useMemo(
     () => (draft ? drawShape(draft) : null),
     [draft],
   );

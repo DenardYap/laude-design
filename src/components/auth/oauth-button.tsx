@@ -1,6 +1,7 @@
 "use client";
 
-import * as React from "react";
+import type { ReactNode } from 'react';
+
 import { useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
 
@@ -8,8 +9,8 @@ import { Button } from "@/components/ui";
 
 interface OAuthButtonProps {
   provider: "google" | "github";
-  icon: React.ReactNode;
-  children: React.ReactNode;
+  icon: ReactNode;
+  children: ReactNode;
 }
 
 export function OAuthButton({ icon, children }: OAuthButtonProps) {

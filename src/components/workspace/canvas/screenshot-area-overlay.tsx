@@ -1,13 +1,14 @@
 "use client";
 
-import * as React from "react";
+import { useEffect, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent, RefObject } from 'react';
 
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import type { ScreenshotRect } from "@/components/workspace/canvas/use-screenshot";
 
 interface ScreenshotAreaOverlayProps {
   /** Element being captured. The overlay renders on top of its bounding box. */
-  captureRef: React.RefObject<HTMLDivElement | null>;
+  captureRef: RefObject<HTMLDivElement | null>;
   /** Called with the user's selection in parent-page viewport CSS coords. */
   onCapture: (rect: ScreenshotRect) => void;
 }
@@ -37,16 +38,16 @@ export function ScreenshotAreaOverlay({
   const setTool = useWorkspaceStore((s) => s.setTool);
   const active = tool === "screenshot-area";
 
-  const [bounds, setBounds] = React.useState<DOMRect | null>(null);
-  const [start, setStart] = React.useState<Point | null>(null);
-  const [end, setEnd] = React.useState<Point | null>(null);
+  const [bounds, setBounds] = useState<DOMRect | null>(null);
+  const [start, setStart] = useState<Point | null>(null);
+  const [end, setEnd] = useState<Point | null>(null);
 
   // Track captureRef bounds so the overlay re-aligns on resize / scroll /
   // pane-drag. We poll on rAF while active because there's no single event
   // that catches every layout change (resize observers don't fire on parent
   // scrolls, scroll listeners miss programmatic resizes from the resizable
   // panel group, etc).
-  React.useEffect(() => {
+  useEffect(() => {
     if (!active) {
       setBounds(null);
       setStart(null);
@@ -71,7 +72,7 @@ export function ScreenshotAreaOverlay({
     return () => cancelAnimationFrame(raf);
   }, [active, captureRef]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -87,13 +88,13 @@ export function ScreenshotAreaOverlay({
   // pull the selection past the canvas edge without losing the gesture (a
   // common slip when the area of interest sits flush with the right/bottom
   // border).
-  React.useEffect(() => {
+  useEffect(() => {
     if (!start) return;
 
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: globalThis.MouseEvent) => {
       setEnd({ x: e.clientX, y: e.clientY });
     };
-    const onUp = (e: MouseEvent) => {
+    const onUp = (e: globalThis.MouseEvent) => {
       const finalEnd = { x: e.clientX, y: e.clientY };
       const x1 = Math.min(start.x, finalEnd.x);
       const y1 = Math.min(start.y, finalEnd.y);
@@ -124,7 +125,7 @@ export function ScreenshotAreaOverlay({
 
   if (!active || !bounds) return null;
 
-  const handleDown = (e: React.MouseEvent) => {
+  const handleDown = (e: ReactMouseEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
     const point = { x: e.clientX, y: e.clientY };

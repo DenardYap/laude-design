@@ -1,12 +1,11 @@
-import * as React from "react";
-
+import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from "@/lib/utils";
 
-interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
+interface PageHeaderProps extends HTMLAttributes<HTMLDivElement> {
   title: string;
   description?: string;
-  actions?: React.ReactNode;
-  eyebrow?: React.ReactNode;
+  actions?: ReactNode;
+  eyebrow?: ReactNode;
 }
 
 /**

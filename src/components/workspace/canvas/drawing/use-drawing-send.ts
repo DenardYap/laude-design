@@ -1,6 +1,8 @@
 "use client";
 
-import * as React from "react";
+import { useCallback, useState } from 'react';
+import type { RefObject } from 'react';
+
 import { toast } from "sonner";
 
 import { uploadAttachment } from "@/lib/api/uploads";
@@ -40,8 +42,8 @@ export interface DrawingSend {
  */
 export function useDrawingSend(
   projectId: string,
-  viewportRef: React.RefObject<HTMLDivElement | null>,
-  captureRef: React.RefObject<HTMLDivElement | null>,
+  viewportRef: RefObject<HTMLDivElement | null>,
+  captureRef: RefObject<HTMLDivElement | null>,
 ): DrawingSend {
   const sessionId = useWorkspaceStore(
     (s) => s.activeSessionByProject[projectId],
@@ -51,9 +53,9 @@ export function useDrawingSend(
   const clearDrawing = useDrawingStore((s) => s.clear);
   const shapes = useDrawingStore(selectShapes(projectId));
 
-  const [sending, setSending] = React.useState(false);
+  const [sending, setSending] = useState(false);
 
-  const send = React.useCallback(async () => {
+  const send = useCallback(async () => {
     if (sending) return;
     if (!sessionId) {
       toast.error("Open a session first");
@@ -137,14 +139,11 @@ async function captureSketch({
     throw new Error("Nothing visible to capture");
   }
 
-  // The capture wrapper is `transform: scale(zoom)`, so the iframe's visual
-  // rect is `iframe-CSS × zoom`. The in-iframe screenshot script and the
-  // SVG userspace are both in iframe-CSS pixels, so we convert visual
-  // offsets back to CSS pixels by dividing by zoom.
+  // captureRef has `transform: scale(zoom)`, so the iframe's visual rect is
+  // CSS × zoom. Divide by zoom to convert to iframe-local CSS pixels.
   const zoom = useWorkspaceStore.getState().zoom;
 
-  // 1. Design screenshot, cropped to the visible region in iframe-local
-  //    CSS pixels (the in-iframe script expects iframe-relative crops).
+  // 1. Design screenshot, cropped to the visible region in iframe-local CSS pixels.
   const designReply = await requestIframeScreenshot(iframe, {
     pixelRatio: PIXEL_RATIO,
     crop: {
@@ -158,17 +157,14 @@ async function captureSketch({
     throw new Error(designReply.error ?? "Couldn't capture canvas");
   }
 
-  // 2. SVG → PNG. The live SVG's `getBoundingClientRect` returns the visual
-  //    (post-transform) size; we rasterize at that size for crisp output but
-  //    point the viewBox at the *CSS* dimensions so shapes stored in
-  //    iframe-CSS-px coordinates land in the right spot.
+  // 2. SVG → PNG. getBoundingClientRect() returns the visual (post-transform)
+  //    size = CSS × zoom. Divide by zoom for the viewBox so shape coordinates
+  //    (stored in iframe CSS pixels) land in the right spot.
   const svgRect = svg.getBoundingClientRect();
-  const svgCssW = svgRect.width / zoom;
-  const svgCssH = svgRect.height / zoom;
   const svgImage = await rasterizeSvg(
     svg,
-    svgCssW,
-    svgCssH,
+    svgRect.width / zoom,
+    svgRect.height / zoom,
     svgRect.width,
     svgRect.height,
   );
