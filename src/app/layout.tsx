@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Metadata, Viewport } from "next";
 import { Barlow, Cabin_Sketch } from "next/font/google";
+import { Analytics } from '@vercel/analytics/next';
 
 import "@/styles/globals.css";
 import { Toaster, TooltipProvider } from "@/components/ui";
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
         </QueryProvider>
         <Toaster closeButton />
+        <Analytics />
       </body>
     </html>
   );
