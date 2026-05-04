@@ -23,44 +23,34 @@ import { SessionHistoryList } from "@/components/workspace/chat/session-history-
 import { SessionTab } from "@/components/workspace/chat/session-tab";
 import { useTabDrag } from "@/components/workspace/chat/hooks/use-tab-drag";
 import { useScrollEdges } from "@/components/workspace/chat/hooks/use-scroll-edges";
-
-interface SessionTabsProps {
-  projectId: string;
-  sessions: ChatSessionDTO[];
-  activeSessionId: string | undefined;
-}
+import type {
+  SessionTabActionsProps,
+  SessionTabStripProps,
+  SessionTabsProps,
+} from "@/components/workspace/chat/types/session";
 
 export const TEMP_SESSION_PREFIX = "temp-session-";
 
 // ---------------------------------------------------------------------------
-// SessionTabStrip — horizontally scrollable tab list with fade masks
+// SessionTabStrip — reads activeSessionId + setActive from store
 // ---------------------------------------------------------------------------
 
-interface SessionTabStripProps {
-  displaySessions: ChatSessionDTO[];
-  activeSessionId: string | undefined;
-  dragOffset: { tabId: string; offset: number } | null;
-  scrollRef: React.RefObject<HTMLDivElement | null>;
-  maskImage: string;
-  onSelect: (id: string) => void;
-  onClose: (id: string) => void;
-  onDelete: (id: string) => void;
-  registerTabEl: (id: string) => (el: HTMLDivElement | null) => void;
-  onTabMouseDown: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
-}
-
 function SessionTabStrip({
+  projectId,
   displaySessions,
-  activeSessionId,
   dragOffset,
   scrollRef,
   maskImage,
-  onSelect,
   onClose,
   onDelete,
   registerTabEl,
   onTabMouseDown,
 }: SessionTabStripProps) {
+  const activeSessionId = useWorkspaceStore(
+    (s) => s.activeSessionByProject[projectId],
+  );
+  const setActive = useWorkspaceStore((s) => s.setActiveSession);
+
   return (
     <div
       ref={scrollRef}
@@ -75,7 +65,7 @@ function SessionTabStrip({
             key={s.id}
             session={s}
             active={s.id === activeSessionId}
-            onSelect={() => onSelect(s.id)}
+            onSelect={() => setActive(projectId, s.id)}
             isPending={isPending}
             onClose={() => onClose(s.id)}
             onDelete={() => onDelete(s.id)}
@@ -93,31 +83,40 @@ function SessionTabStrip({
 }
 
 // ---------------------------------------------------------------------------
-// SessionTabActions — history popover + new-session button
+// SessionTabActions — owns historyOpen state; reads store for open/navigate
 // ---------------------------------------------------------------------------
 
-interface SessionTabActionsProps {
-  sessions: ChatSessionDTO[];
-  activeSessionId: string | undefined;
-  historyOpen: boolean;
-  onHistoryOpenChange: (open: boolean) => void;
-  onSelectFromHistory: (id: string) => void;
-  onDeleteFromHistory: (id: string) => void;
-  onNew: () => void;
-}
-
 function SessionTabActions({
+  projectId,
   sessions,
-  activeSessionId,
-  historyOpen,
-  onHistoryOpenChange,
-  onSelectFromHistory,
-  onDeleteFromHistory,
   onNew,
+  onDeleteFromHistory,
 }: SessionTabActionsProps) {
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const activeSessionId = useWorkspaceStore(
+    (s) => s.activeSessionByProject[projectId],
+  );
+  const openSessionTab = useWorkspaceStore((s) => s.openSessionTab);
+
+  const handleSelectFromHistory = useCallback(
+    (sessionId: string) => {
+      openSessionTab(projectId, sessionId);
+      setHistoryOpen(false);
+    },
+    [openSessionTab, projectId],
+  );
+
+  const handleDeleteFromHistory = useCallback(
+    (sessionId: string) => {
+      setHistoryOpen(false);
+      onDeleteFromHistory(sessionId);
+    },
+    [onDeleteFromHistory],
+  );
+
   return (
     <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-surface-sunken">
-      <Popover open={historyOpen} onOpenChange={onHistoryOpenChange}>
+      <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
@@ -134,8 +133,8 @@ function SessionTabActions({
           <SessionHistoryList
             sessions={sessions}
             activeSessionId={activeSessionId}
-            onSelect={onSelectFromHistory}
-            onDelete={onDeleteFromHistory}
+            onSelect={handleSelectFromHistory}
+            onDelete={handleDeleteFromHistory}
           />
         </PopoverContent>
       </Popover>
@@ -158,15 +157,13 @@ function SessionTabActions({
 // SessionTabs — public API
 // ---------------------------------------------------------------------------
 
-export function SessionTabs({
-  projectId,
-  sessions,
-  activeSessionId,
-}: SessionTabsProps) {
+export function SessionTabs({ projectId, sessions }: SessionTabsProps) {
   const router = useRouter();
+  const activeSessionId = useWorkspaceStore(
+    (s) => s.activeSessionByProject[projectId],
+  );
   const setActive = useWorkspaceStore((s) => s.setActiveSession);
   const closeSessionTab = useWorkspaceStore((s) => s.closeSessionTab);
-  const openSessionTab = useWorkspaceStore((s) => s.openSessionTab);
   const ensureHydrated = useWorkspaceStore((s) => s.ensureSessionTabsHydrated);
   const openSessionIds = useWorkspaceStore(
     (s) => s.openSessionsByProject[projectId] ?? EMPTY_TAB_LIST,
@@ -179,7 +176,6 @@ export function SessionTabs({
   const [confirmStopCloseId, setConfirmStopCloseId] = useState<string | null>(
     null,
   );
-  const [historyOpen, setHistoryOpen] = useState(false);
 
   const requestSessionStop = useWorkspaceStore((s) => s.requestSessionStop);
   const streamingSessionIds = useWorkspaceStore((s) => s.streamingSessionIds);
@@ -275,7 +271,12 @@ export function SessionTabs({
       const isStreaming = Boolean(
         storeState.streamingSessionIds[liveActiveId],
       );
-      if (!hasDraft && !hasPendingAttachments && !hasPendingTags && !isStreaming) {
+      if (
+        !hasDraft &&
+        !hasPendingAttachments &&
+        !hasPendingTags &&
+        !isStreaming
+      ) {
         return;
       }
     }
@@ -350,21 +351,6 @@ export function SessionTabs({
     void handleNew();
   }, [openSessionIds.length, pendingSessions.length, projectId, handleNew]);
 
-  const handleSelectFromHistory = useCallback(
-    (sessionId: string) => {
-      openSessionTab(projectId, sessionId);
-      setHistoryOpen(false);
-    },
-    [openSessionTab, projectId],
-  );
-  const handleDeleteFromHistory = useCallback(
-    (sessionId: string) => {
-      setHistoryOpen(false);
-      requestDelete(sessionId);
-    },
-    [requestDelete],
-  );
-
   const sessionsById = useMemo(() => {
     const map = new Map<string, ChatSessionDTO>();
     for (const s of sessions) map.set(s.id, s);
@@ -422,25 +408,21 @@ export function SessionTabs({
   return (
     <div className="flex items-center gap-0.5 pl-2 py-1.5 mr-2">
       <SessionTabStrip
+        projectId={projectId}
         displaySessions={displaySessions}
-        activeSessionId={activeSessionId}
         dragOffset={dragOffset}
         scrollRef={scrollRef}
         maskImage={maskImage}
-        onSelect={(id) => setActive(projectId, id)}
         onClose={handleCloseTab}
         onDelete={requestDelete}
         registerTabEl={registerTabEl}
         onTabMouseDown={handleTabMouseDown}
       />
       <SessionTabActions
+        projectId={projectId}
         sessions={sessions}
-        activeSessionId={activeSessionId}
-        historyOpen={historyOpen}
-        onHistoryOpenChange={setHistoryOpen}
-        onSelectFromHistory={handleSelectFromHistory}
-        onDeleteFromHistory={handleDeleteFromHistory}
         onNew={handleNew}
+        onDeleteFromHistory={requestDelete}
       />
       <ConfirmDialog
         open={confirmDeleteId !== null}

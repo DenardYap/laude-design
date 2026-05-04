@@ -12,17 +12,11 @@ import { SummarizationBanner } from "@/components/workspace/chat/summarization-b
 import { WorkingIndicator } from "@/components/workspace/chat/working-indicator";
 import { ChatErrorBanner } from "@/components/workspace/chat/chat-error-banner";
 import { useChatScroll } from "@/components/workspace/chat/hooks/use-chat-scroll";
+import type { MessageListProps } from "@/components/workspace/chat/types/messages";
 
 // Stable empty array — never recreated, so Zustand selectors that fall back
 // to this don't trigger spurious re-renders.
 const NO_MARKERS: number[] = [];
-
-interface MessageListProps {
-  sessionId: string;
-  messages: UIMessage[];
-  status: "submitted" | "streaming" | "ready" | "error";
-  chatError?: ChatError | null;
-}
 
 // ---------------------------------------------------------------------------
 // ScrollToBottomButton

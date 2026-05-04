@@ -1,19 +1,19 @@
 "use client";
 
-import { useMemo } from 'react';
-import { match } from "ts-pattern";
+import { useMemo } from "react";
 
 import { Button, EmptyState, SkillMark } from "@/components/ui";
 import { TablePagination, usePagination } from "@/components/shared/pagination";
 import { useScopeQuery, useScopeDimension } from "@/stores/filters-store";
-import { MineSkillRow, SkillTableHeader, type MineSkill } from "./skill-row";
-import { SkillsFilters, hasActiveFilters } from "./skills-filters";
-import { bucketBySize, type SkillSizeBucket } from "./skill-size";
-import { SkillUploader } from "./skill-uploader";
-
-interface MySkillsTableProps {
-  skills: MineSkill[];
-}
+import { MineSkillRow } from "@/components/skills/mine-skill-row";
+import { SkillTableHeader } from "@/components/skills/skill-table-header";
+import { SkillsFilters } from "@/components/skills/skills-filters";
+import { hasActiveFilters } from "@/components/skills/utils/skills-filters";
+import { bucketBySize } from "@/components/skills/utils/skill-size";
+import { SkillUploader } from "@/components/skills/skill-uploader";
+import { EmptyMatch } from "@/components/skills/empty-match";
+import type { MySkillsTableProps } from "@/components/skills/types/skill-table";
+import type { SkillSizeBucket } from "@/components/skills/types/skills";
 
 const COLUMNS = ["Name", "Author", "Visibility", "Default", "Tokens", "Updated"];
 const PAGE_SIZE = 25;
@@ -108,8 +108,6 @@ export function MySkillsTable({ skills }: MySkillsTableProps) {
           >
             <SkillTableHeader columns={COLUMNS} colSpan={6} />
             {pageItems.map((s, i) => (
-              // Zebra index is row-relative so striping stays consistent across
-              // pages (page 2 row 0 zebras the same as page 1 row 0).
               <MineSkillRow key={s.id} skill={s} zebra={i % 2 === 1} />
             ))}
           </ul>
@@ -125,28 +123,6 @@ export function MySkillsTable({ skills }: MySkillsTableProps) {
           />
         </div>
       )}
-    </div>
-  );
-}
-
-interface EmptyMatchProps {
-  query: string;
-  filtersActive: boolean;
-  onClear: () => void;
-}
-
-function EmptyMatch({ query, filtersActive, onClear }: EmptyMatchProps) {
-  const reason = match({ hasQuery: query.trim().length > 0, filtersActive })
-    .with({ hasQuery: true, filtersActive: true }, () => "No skills match your search and filters.")
-    .with({ hasQuery: true, filtersActive: false }, () => "No skills match your search.")
-    .with({ hasQuery: false, filtersActive: true }, () => "No skills match the active filters.")
-    .otherwise(() => "No skills.");
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-dashed border-border px-4 py-6 text-sm text-ink-muted">
-      <span>{reason}</span>
-      <Button variant="ghost" size="sm" onClick={onClear}>
-        Clear
-      </Button>
     </div>
   );
 }

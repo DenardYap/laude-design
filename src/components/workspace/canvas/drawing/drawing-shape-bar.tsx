@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import type { ReactNode, RefObject } from 'react';
+import { useEffect, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 
 import {
   ArrowUpRight,
@@ -19,7 +19,6 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { match } from "ts-pattern";
 
 import {
   IconButton,
@@ -30,8 +29,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
 import { DrawingStyleControls } from "@/components/workspace/canvas/drawing/drawing-style-controls";
+import { ToolButton } from "@/components/workspace/canvas/drawing/tool-button";
+import { shortcutChord } from "@/components/workspace/canvas/drawing/utils/shortcut";
 import {
   selectCanRedo,
   selectCanUndo,
@@ -41,20 +41,7 @@ import {
   type DrawTool,
 } from "@/stores/drawing-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-
-interface DrawingShapeBarProps {
-  projectId: string;
-  /** Used to position the bar over the design viewport (not the chat pane). */
-  viewportRef: RefObject<HTMLDivElement | null>;
-  onSend: () => void;
-  sending: boolean;
-  /**
-   * Funnel point for "leave Draw mode" — opens the discard-confirm dialog
-   * if there are shapes to lose. Lives at the workspace level so every
-   * exit path (X button, Esc, the canvas-toolbar Pencil, ⌘⇧D) shares it.
-   */
-  onRequestExit: () => void;
-}
+import type { DrawingShapeBarProps } from "@/components/workspace/canvas/drawing/types/drawing-shape-bar";
 
 const SHAPE_TOOLS: { tool: DrawTool; icon: ReactNode; label: string; key: string }[] = [
   { tool: "none", icon: <MousePointer className="size-4" />, label: "Select", key: "1" },
@@ -273,49 +260,3 @@ export function DrawingShapeBar({
   );
 }
 
-interface ToolButtonProps {
-  label: string;
-  shortcut?: string;
-  icon: ReactNode;
-  active?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}
-
-function ToolButton({ label, shortcut, icon, active, disabled, onClick }: ToolButtonProps) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <IconButton
-          aria-label={label}
-          aria-pressed={active}
-          className={cn(
-            "size-8 rounded-full",
-            active && "bg-brand-soft text-ink ring-2 ring-brand",
-          )}
-          icon={icon}
-          onClick={onClick}
-          disabled={disabled}
-        />
-      </TooltipTrigger>
-      <TooltipContent side="top" className="flex flex-col items-center gap-0.5">
-        <span>{label}</span>
-        {shortcut ? (
-          <span className="text-[10px] opacity-60">{shortcut}</span>
-        ) : null}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-function shortcutChord(key: string): string {
-  return match(getModSymbol())
-    .with("meta", () => `⌘${key}`)
-    .with("ctrl", () => `Ctrl+${key}`)
-    .exhaustive();
-}
-
-function getModSymbol(): "meta" | "ctrl" {
-  if (typeof navigator === "undefined") return "meta";
-  return /Mac|iPhone|iPad/i.test(navigator.platform) ? "meta" : "ctrl";
-}

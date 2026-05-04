@@ -15,22 +15,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import type { ExitDrawingControl } from "@/components/workspace/canvas/drawing/use-exit-drawing";
 import { type ToolMode, ZOOM_LEVELS, useWorkspaceStore } from "@/stores/workspace-store";
-
-interface CanvasToolbarProps {
-  onCaptureFull: () => void;
-  onStartAreaCapture: () => void;
-  /**
-   * Funnel for every workspace-tool transition. Lives at the workspace
-   * level so the same discard-confirm dialog protects every exit-from-draw
-   * path — toggling Highlight, taking a screenshot, or just hitting Esc all
-   * route through here. A no-op when we're not currently in Draw mode.
-   */
-  onRequestSwitch: ExitDrawingControl["requestSwitch"];
-  /** Disables screenshot controls when no design content has been rendered yet. */
-  isCanvasEmpty?: boolean;
-}
+import type { CanvasToolbarProps } from "@/components/workspace/canvas/types/canvas-toolbar";
 
 export function CanvasToolbar({
   onCaptureFull,

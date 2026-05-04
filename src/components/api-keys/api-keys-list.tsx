@@ -1,22 +1,12 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo } from "react";
 
 import { Button, EmptyState } from "@/components/ui";
 import { SearchBar } from "@/components/shared/search-bar";
 import { useScopeQuery } from "@/stores/filters-store";
-import { ApiKeyRow, type ProviderConfig } from "./api-key-row";
-import type { AiProvider } from "@/lib/validators";
-
-interface ExistingKey {
-  lastFour: string;
-  updatedAt: Date | string;
-}
-
-interface ApiKeysListProps {
-  providers: ProviderConfig[];
-  existingByProvider: Record<AiProvider, ExistingKey | undefined>;
-}
+import { ApiKeyRow } from "./api-key-row";
+import type { ApiKeysListProps } from "@/components/api-keys/types/api-keys";
 
 export function ApiKeysList({ providers, existingByProvider }: ApiKeysListProps) {
   const { query, setQuery } = useScopeQuery("api-keys");

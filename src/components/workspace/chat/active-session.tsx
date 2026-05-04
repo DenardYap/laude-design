@@ -21,7 +21,7 @@ import {
   parseChatError,
 } from "@/components/workspace/chat/utils/chat-errors";
 import { useActiveDesignId } from "@/components/workspace/chat/hooks/use-active-design";
-import { captureDesignScreenshot } from "@/components/workspace/canvas/capture-design";
+import { captureDesignScreenshot } from "@/components/workspace/canvas/utils/capture-design";
 
 /**
  * Custom continuation predicate: behaves identically to

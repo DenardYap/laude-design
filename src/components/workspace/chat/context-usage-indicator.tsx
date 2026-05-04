@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 
 import {
   Popover,
@@ -19,11 +20,15 @@ import {
   getLifetimeInputTokens,
   resolveModelOption,
 } from "@/lib/workspace/types";
+import type {
+  ContextUsageIndicatorProps,
+  UsageRingProps,
+  UsageRowProps,
+} from "@/components/workspace/chat/types/context-usage";
 
-interface ContextUsageIndicatorProps {
-  projectId: string;
-  sessionId: string;
-}
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 const ZERO_USAGE = {
   currentInputTokens: 0,
@@ -47,11 +52,6 @@ function formatCost(usd: number): string {
 // ---------------------------------------------------------------------------
 // UsageRing — circular progress indicator
 // ---------------------------------------------------------------------------
-
-interface UsageRingProps {
-  ratio: number;
-  className?: string;
-}
 
 // Stroke-dasharray ring. `r=7.25` with stroke-width 2.5 inside a 20-unit
 // viewBox leaves enough padding for the rounded stroke caps to render fully.
@@ -99,7 +99,7 @@ function UsageRing({ ratio, className }: UsageRingProps) {
 // UsageRow — label + value pair
 // ---------------------------------------------------------------------------
 
-function UsageRow({ label, value }: { label: string; value: string }) {
+function UsageRow({ label, value }: UsageRowProps) {
   return (
     <div className="flex items-baseline justify-between text-xs">
       <span className="text-ink-muted">{label}</span>
@@ -109,34 +109,33 @@ function UsageRow({ label, value }: { label: string; value: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// SessionUsagePopoverPanel — the content inside the usage popover
+// SessionUsagePopoverPanel — reads store directly; no prop drilling
 // ---------------------------------------------------------------------------
 
-interface SessionUsagePopoverPanelProps {
-  currentTokens: number;
-  contextWindow: number;
-  currentRatio: number;
-  visualRatio: number;
-  percent: number;
-  tone: string;
-  lifetimeInputTokens: number;
-  lifetimeOutputTokens: number;
-  summarizedCount: number;
-  totalCostUsd: number;
-}
-
 function SessionUsagePopoverPanel({
-  currentTokens,
-  contextWindow,
-  currentRatio,
-  visualRatio,
-  percent,
-  tone,
-  lifetimeInputTokens,
-  lifetimeOutputTokens,
-  summarizedCount,
-  totalCostUsd,
-}: SessionUsagePopoverPanelProps) {
+  projectId,
+  sessionId,
+}: ContextUsageIndicatorProps) {
+  const usage =
+    useWorkspaceStore((s) => s.sessionUsageById[sessionId]) ?? ZERO_USAGE;
+  const selected = useWorkspaceStore((s) =>
+    resolveSessionModel(sessionId, projectId, s),
+  );
+
+  const active = resolveModelOption(selected);
+  const contextWindow = getContextWindow(active.provider, active.modelId);
+  const currentTokens = usage.currentInputTokens;
+  const currentRatio = contextWindow > 0 ? currentTokens / contextWindow : 0;
+  const percent = Math.round(Math.min(1, Math.max(0, currentRatio)) * 100);
+  const lifetimeInputTokens = getLifetimeInputTokens(usage);
+
+  const tone =
+    currentRatio > 0.9
+      ? "text-destructive"
+      : currentRatio > 0.7
+        ? "text-warning"
+        : "text-brand-hover";
+
   return (
     <div className="space-y-3">
       {/* Current context window fill */}
@@ -174,11 +173,13 @@ function SessionUsagePopoverPanel({
             Exceeds this model&apos;s context window. Rolling summarization will
             fold older messages on the next turn.
           </div>
-        ) : summarizedCount > 0 ? (
+        ) : usage.summarizedCount > 0 ? (
           <div className="mt-2 text-[11px] leading-snug text-ink-muted">
             Rolling summarization has folded older messages{" "}
-            {summarizedCount === 1 ? "once" : `${summarizedCount} times`} to
-            keep the live request bounded.
+            {usage.summarizedCount === 1
+              ? "once"
+              : `${usage.summarizedCount} times`}{" "}
+            to keep the live request bounded.
           </div>
         ) : null}
       </div>
@@ -198,16 +199,16 @@ function SessionUsagePopoverPanel({
       />
       <UsageRow
         label="Output tokens"
-        value={numberFormatter.format(lifetimeOutputTokens)}
+        value={numberFormatter.format(usage.lifetimeOutputTokens)}
       />
       <UsageRow
         label="Summarized"
         value={
-          summarizedCount === 0
+          usage.summarizedCount === 0
             ? "Never"
-            : summarizedCount === 1
+            : usage.summarizedCount === 1
               ? "1 time"
-              : `${summarizedCount} times`
+              : `${usage.summarizedCount} times`
         }
       />
 
@@ -216,7 +217,7 @@ function SessionUsagePopoverPanel({
       <div className="flex items-baseline justify-between">
         <span className="text-xs text-ink-muted">Total session cost</span>
         <span className="text-sm font-semibold text-ink tabular-nums">
-          {formatCost(totalCostUsd)}
+          {formatCost(usage.totalCostUsd)}
         </span>
       </div>
       <p className="text-[10px] leading-snug text-ink-subtle">
@@ -244,10 +245,6 @@ export function ContextUsageIndicator({
 
   const active = resolveModelOption(selected);
   const contextWindow = getContextWindow(active.provider, active.modelId);
-
-  // The ring tracks the LIVE prompt size — `currentInputTokens` is what the
-  // model just saw on its most recent step, which shrinks visibly when
-  // rolling summarization fires (that's the whole point of the ring).
   const currentTokens = usage.currentInputTokens;
   const currentRatio = contextWindow > 0 ? currentTokens / contextWindow : 0;
   const visualRatio = Math.min(1, Math.max(0, currentRatio));
@@ -259,10 +256,6 @@ export function ContextUsageIndicator({
       : currentRatio > 0.7
         ? "text-warning"
         : "text-brand-hover";
-
-  // The "Input tokens" row uses the LIFETIME value so it stays monotonic —
-  // it never decreases when summarization shrinks the live prompt.
-  const lifetimeInputTokens = getLifetimeInputTokens(usage);
 
   return (
     <Popover>
@@ -285,16 +278,8 @@ export function ContextUsageIndicator({
       </Tooltip>
       <PopoverContent align="start" sideOffset={8} className="w-64 p-3">
         <SessionUsagePopoverPanel
-          currentTokens={currentTokens}
-          contextWindow={contextWindow}
-          currentRatio={currentRatio}
-          visualRatio={visualRatio}
-          percent={percent}
-          tone={tone}
-          lifetimeInputTokens={lifetimeInputTokens}
-          lifetimeOutputTokens={usage.lifetimeOutputTokens}
-          summarizedCount={usage.summarizedCount}
-          totalCostUsd={usage.totalCostUsd}
+          projectId={projectId}
+          sessionId={sessionId}
         />
       </PopoverContent>
     </Popover>

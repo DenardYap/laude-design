@@ -1,17 +1,8 @@
 "use client";
 
-import type { DesignDTO, FolderDTO } from "@/lib/workspace/types";
-
 import { DesignRow } from "./design-row";
 import { FolderRow } from "./folder-row";
-
-interface FolderChildrenProps {
-  projectId: string;
-  parentId: string | null;
-  folders: FolderDTO[];
-  designs: DesignDTO[];
-  depth: number;
-}
+import type { FolderChildrenProps } from "@/components/workspace/canvas/files-tree/types/files-tree";
 
 /**
  * Renders the direct children of a folder. Pulled out of FolderRow so the

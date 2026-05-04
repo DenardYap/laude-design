@@ -1,20 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from 'react';
-import type { RefObject } from 'react';
+import { useMemo } from "react";
+import type { RefObject } from "react";
 
 import {
   SandpackLayout,
   SandpackPreview,
   SandpackProvider,
-  useSandpack,
 } from "@codesandbox/sandpack-react";
 
-import type { DesignDTO, DesignFileDTO } from "@/lib/workspace/types";
-import {
-  buildSandpackFiles,
-  SANDPACK_RUNTIME_PATHS,
-} from "@/components/workspace/canvas/sandpack-files";
+import type { DesignDTO } from "@/lib/workspace/types";
+import { buildSandpackFiles } from "@/components/workspace/canvas/utils/sandpack-files";
+import { FileMirror } from "@/components/workspace/canvas/file-mirror";
+import type { ScreenshotSandpackProps } from "@/components/workspace/canvas/types/screenshot";
 
 /**
  * The CSS pixel size of the hidden screenshot iframe. Picked to match a
@@ -44,23 +42,6 @@ const SANDPACK_OPTIONS = {
   recompileDelay: 250,
   externalResources: ["https://cdn.tailwindcss.com"],
 };
-
-interface ScreenshotSandpackProps {
-  /**
-   * The design to render. Changing the design's `id` triggers a remount
-   * via `key={design.id}` in the parent host so the bundler starts fresh
-   * with the new file set; same-id updates flow through `updateFile` in
-   * the `<FileMirror/>` child without restarting Sandpack.
-   */
-  design: DesignDTO;
-  /**
-   * Forwarded ref so the host can DOM-query the live iframe element. We
-   * stamp `data-screenshot-host` on the wrapper so the parent can scope
-   * its iframe lookup to *this* Sandpack and never accidentally pick up
-   * the visible canvas's iframe.
-   */
-  hostRef: RefObject<HTMLDivElement | null>;
-}
 
 /**
  * Off-screen, minimal Sandpack mount the agent uses to take screenshots
@@ -127,41 +108,3 @@ export function ScreenshotSandpack({ design, hostRef }: ScreenshotSandpackProps)
   );
 }
 
-/**
- * Push file edits from updated `designFiles` props into the live bundler
- * without remounting. Mirrors the same behavior as
- * `DesignerInternals` in the visible renderer — including the deletion
- * cleanup that respects `SANDPACK_RUNTIME_PATHS` so we don't accidentally
- * rip out `/package.json` and break the bundle.
- */
-function FileMirror({ designFiles }: { designFiles: DesignFileDTO[] }) {
-  const { sandpack } = useSandpack();
-  const isFirstRun = useRef(true);
-
-  useEffect(() => {
-    if (isFirstRun.current) {
-      isFirstRun.current = false;
-      return;
-    }
-    const designPaths = new Set(designFiles.map((f) => f.path));
-    for (const f of designFiles) {
-      if (SANDPACK_RUNTIME_PATHS.has(f.path)) continue;
-      const current = sandpack.files[f.path]?.code;
-      if (current !== f.content) {
-        sandpack.updateFile(f.path, f.content);
-      }
-    }
-    for (const path of Object.keys(sandpack.files)) {
-      if (designPaths.has(path)) continue;
-      if (SANDPACK_RUNTIME_PATHS.has(path)) continue;
-      if (sandpack.files[path]?.hidden) continue;
-      sandpack.deleteFile(path);
-    }
-    // Same rationale as `DesignerInternals`: read sandpack from closure on
-    // every effect run so we always diff against the latest bundler state
-    // rather than the snapshot at last-render-of-this-effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [designFiles]);
-
-  return null;
-}

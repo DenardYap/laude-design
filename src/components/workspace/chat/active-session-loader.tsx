@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
 
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import { ActiveSession } from "@/components/workspace/chat/active-session";
 import { ChatSessionSkeleton } from "@/components/workspace/chat/chat-session-skeleton";
 import type { ActiveSessionLoaderProps } from "@/components/workspace/chat/types/messages";
@@ -10,8 +11,10 @@ import type { ActiveSessionLoaderProps } from "@/components/workspace/chat/types
 export function ActiveSessionLoader({
   projectId,
   sessionId,
-  active,
 }: ActiveSessionLoaderProps) {
+  const active = useWorkspaceStore(
+    (s) => s.activeSessionByProject[projectId] === sessionId,
+  );
   const initial = useQuery({
     queryKey: ["session-messages", sessionId],
     queryFn: async () => {

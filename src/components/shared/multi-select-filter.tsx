@@ -15,26 +15,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui";
-import { useScopeDimension, type FilterScope } from "@/stores/filters-store";
+import { useScopeDimension } from "@/stores/filters-store";
 import { cn } from "@/lib/utils";
+import type { MultiSelectFilterProps } from "@/components/shared/types/filter";
 
-export interface FilterOption {
-  value: string;
-  label: string;
-}
-
-interface MultiSelectFilterProps {
-  scope: FilterScope;
-  /**
-   * Filter dimension (e.g. "recency", "size", "creator"). Each dimension is
-   * an independent multi-select; dimensions combine with AND across the row.
-   */
-  dimension: string;
-  options: FilterOption[];
-  label?: string;
-  triggerVariant?: "outline" | "ghost";
-  showAsIcon?: boolean;
-}
+export type { FilterOption } from "@/components/shared/types/filter";
 
 export function MultiSelectFilter({
   scope,

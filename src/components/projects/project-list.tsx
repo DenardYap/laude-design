@@ -1,49 +1,18 @@
 "use client";
 
-import { useMemo, useState } from 'react';
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-
-import {
-  ConfirmDialog,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  IconButton,
-} from "@/components/ui";
 import { match } from "ts-pattern";
 
+import { ConfirmDialog } from "@/components/ui";
 import { useScopeQuery, useScopeDimension } from "@/stores/filters-store";
-import { cn, formatRelativeTime } from "@/lib/utils";
 import { deleteProject } from "@/server/actions/projects";
+import { ProjectRow } from "@/components/projects/project-row";
+import { bucketByRecency } from "@/components/projects/utils/projects";
+import type { ProjectListItem, ProjectListProps, RecencyBucket } from "@/components/projects/types/projects";
 
-type RecencyBucket = "today" | "week" | "month" | "older";
-
-// Bucket a project by how recently it was updated, relative to "now". Buckets
-// are mutually exclusive — a project counts once, in the narrowest bucket it
-// fits into.
-function bucketByRecency(updatedAt: Date | string, now: number): RecencyBucket {
-  const ts = typeof updatedAt === "string" ? new Date(updatedAt).getTime() : updatedAt.getTime();
-  const ageMs = now - ts;
-  const day = 24 * 60 * 60 * 1000;
-  if (ageMs < day) return "today";
-  if (ageMs < 7 * day) return "week";
-  if (ageMs < 30 * day) return "month";
-  return "older";
-}
-
-export interface ProjectListItem {
-  id: string;
-  name: string;
-  updatedAt: Date | string;
-}
-
-interface ProjectListProps {
-  projects: ProjectListItem[];
-}
+export type { ProjectListItem } from "@/components/projects/types/projects";
 
 export function ProjectList({ projects }: ProjectListProps) {
   const { query } = useScopeQuery("projects");
@@ -111,64 +80,5 @@ export function ProjectList({ projects }: ProjectListProps) {
         }}
       />
     </>
-  );
-}
-
-interface ProjectRowProps {
-  project: ProjectListItem;
-  zebra: boolean;
-  onRequestDelete: () => void;
-}
-
-function ProjectRow({ project, zebra, onRequestDelete }: ProjectRowProps) {
-  return (
-    <li
-      className={cn(
-        "group relative flex items-center justify-between gap-4",
-        zebra ? "bg-surface-sunken/40" : "bg-transparent",
-        "hover:bg-surface-sunken",
-      )}
-    >
-      {/* Full-row link: covers the entire row so clicking anywhere (except the
-          actions menu) navigates. The visible content sits above it via z-index
-          so the title text remains selectable and the arrow icon stays visible. */}
-      <Link
-        href={`/projects/${project.id}`}
-        aria-label={`Open ${project.name}`}
-        className="absolute inset-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      />
-      <div className="pointer-events-none relative flex min-w-0 flex-1 items-center gap-1.5 px-3 py-4">
-        <span className="truncate text-base font-semibold tracking-tight text-ink">
-          {project.name}
-        </span>
-        <ArrowUpRight className="size-3.5 shrink-0 text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100" />
-        <span className="ml-3 truncate text-xs text-ink-muted">
-          Updated {formatRelativeTime(project.updatedAt)}
-        </span>
-      </div>
-      <div className="relative flex items-center pr-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <IconButton
-              aria-label={`More for ${project.name}`}
-              icon={<MoreHorizontal className="size-4" />}
-            />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem disabled>
-              <Pencil className="size-4" />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onSelect={onRequestDelete}
-            >
-              <Trash2 className="size-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </li>
   );
 }

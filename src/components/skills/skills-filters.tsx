@@ -1,67 +1,16 @@
 "use client";
 
-import type { ReactNode } from 'react';
-
 import { SearchBar } from "@/components/shared/search-bar";
+import { MultiDimensionFilter } from "@/components/shared/multi-dimension-filter";
 import {
-  MultiDimensionFilter,
-  type FilterGroup,
-} from "@/components/shared/multi-dimension-filter";
-import type { FilterScope } from "@/stores/filters-store";
-import { SKILL_SIZE_OPTIONS } from "./skill-size";
+  SIZE_GROUP,
+  VISIBILITY_GROUP,
+  DEFAULT_GROUP,
+  AUTHOR_GROUP,
+} from "@/components/skills/utils/skills-filters";
+import type { SkillsFiltersProps } from "@/components/skills/types/skill-table";
 
-interface SkillsFiltersProps {
-  scope: FilterScope;
-  searchPlaceholder: string;
-  showVisibility?: boolean;
-  showDefault?: boolean;
-  /**
-   * Whether to expose the Author filter (Me / Others). On `skills:mine`
-   * "Others" means the skill was cloned from someone else's public skill;
-   * on `skills:public` it means the public skill was authored by another
-   * user.
-   */
-  showAuthor?: boolean;
-  /**
-   * Optional slot rendered after the filter button (e.g. a SortMenu). Kept
-   * generic so each tab can mount tab-specific controls without having to
-   * fork the whole toolbar.
-   */
-  trailing?: ReactNode;
-}
-
-const SIZE_GROUP: FilterGroup = {
-  dimension: "size",
-  label: "Tokens",
-  options: SKILL_SIZE_OPTIONS,
-};
-
-const VISIBILITY_GROUP: FilterGroup = {
-  dimension: "visibility",
-  label: "Visibility",
-  options: [
-    { value: "public", label: "Public" },
-    { value: "private", label: "Private" },
-  ],
-};
-
-const DEFAULT_GROUP: FilterGroup = {
-  dimension: "default",
-  label: "Default applied",
-  options: [
-    { value: "on", label: "Applied to all projects" },
-    { value: "off", label: "Not applied" },
-  ],
-};
-
-const AUTHOR_GROUP: FilterGroup = {
-  dimension: "author",
-  label: "Author",
-  options: [
-    { value: "me", label: "Me" },
-    { value: "others", label: "Others" },
-  ],
-};
+export { hasActiveFilters } from "@/components/skills/utils/skills-filters";
 
 /**
  * Single filter bar reused on both Skills tabs. All dimensions live behind
@@ -76,7 +25,7 @@ export function SkillsFilters({
   showAuthor = false,
   trailing,
 }: SkillsFiltersProps) {
-  const groups: FilterGroup[] = [
+  const groups = [
     SIZE_GROUP,
     ...(showVisibility ? [VISIBILITY_GROUP] : []),
     ...(showDefault ? [DEFAULT_GROUP] : []),
@@ -90,9 +39,4 @@ export function SkillsFilters({
       {trailing ? <div className="ml-auto flex items-center gap-2">{trailing}</div> : null}
     </div>
   );
-}
-
-/** True when the user has any non-default filter state in this scope. */
-export function hasActiveFilters(query: string, dimensionValues: string[][]): boolean {
-  return query.trim().length > 0 || dimensionValues.some((arr) => arr.length > 0);
 }

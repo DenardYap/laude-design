@@ -7,18 +7,14 @@ import type { DesignDTO } from "@/lib/workspace/types";
 import {
   findSandpackIframe,
   requestIframeScreenshot,
-} from "@/components/workspace/canvas/iframe-screenshot";
+} from "@/components/workspace/canvas/utils/iframe-screenshot";
 import {
   ScreenshotSandpack,
   SCREENSHOT_FRAME_HEIGHT,
   SCREENSHOT_FRAME_WIDTH,
 } from "@/components/workspace/canvas/screenshot-sandpack";
 import { useScreenshotRequestStore } from "@/stores/screenshot-request-store";
-
-interface ScreenshotHostProps {
-  projectId: string;
-  designs: DesignDTO[];
-}
+import type { ScreenshotHostProps } from "@/components/workspace/canvas/types/screenshot";
 
 /**
  * How long the hidden Sandpack stays mounted after the most recent

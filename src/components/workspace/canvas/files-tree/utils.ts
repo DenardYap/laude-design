@@ -1,9 +1,7 @@
 import type { DesignDTO, FolderDTO } from "@/lib/workspace/types";
+import type { DescendantCounts } from "@/components/workspace/canvas/files-tree/types/files-tree";
 
-export interface DescendantCounts {
-  designCount: number;
-  folderCount: number;
-}
+export type { DescendantCounts };
 
 /**
  * Walk a folder's subtree and count every nested folder + design. Used to

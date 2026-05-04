@@ -10,7 +10,7 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   findSandpackIframe,
   requestIframeScreenshot,
-} from "@/components/workspace/canvas/iframe-screenshot";
+} from "@/components/workspace/canvas/utils/iframe-screenshot";
 
 export interface ScreenshotRect {
   /** Top-left X in viewport CSS pixels. */

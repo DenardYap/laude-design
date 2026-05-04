@@ -1,6 +1,7 @@
 import type {
   AnswerValue,
   ClarifyingQuestionItem,
+  ClarifyingQuestionSetDTO,
 } from "@/app/api/sessions/[sessionId]/questions/route";
 
 export interface InlineClarifyingQuestionsProps {
@@ -22,4 +23,13 @@ export interface QuestionBlockProps {
   value: AnswerValue | undefined;
   disabled?: boolean;
   onChange: (v: AnswerValue) => void;
+}
+
+export interface QuestionSetBodyProps {
+  sessionId: string;
+  set: ClarifyingQuestionSetDTO;
+}
+
+export interface ReadOnlyBodyProps {
+  items: ClarifyingQuestionItem[];
 }

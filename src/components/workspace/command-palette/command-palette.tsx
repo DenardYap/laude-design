@@ -13,14 +13,8 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui";
-import type { DesignDTO } from "@/lib/workspace/types";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-
-interface CommandPaletteProps {
-  currentProjectId: string;
-  projects: { id: string; name: string }[];
-  designs: DesignDTO[];
-}
+import type { CommandPaletteProps } from "@/components/workspace/command-palette/types/command-palette";
 
 export function CommandPalette({ currentProjectId, projects, designs }: CommandPaletteProps) {
   const router = useRouter();

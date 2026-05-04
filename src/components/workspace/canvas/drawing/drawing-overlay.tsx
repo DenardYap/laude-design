@@ -16,17 +16,7 @@ import {
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { drawShape, newSeed } from "./shapes/render";
 import { hitShape } from "./shapes/hit-test";
-
-interface DrawingOverlayProps {
-  projectId: string;
-  /** Container the SVG fills. The overlay sizes itself to its parent. */
-  className?: string;
-}
-
-interface Point {
-  x: number;
-  y: number;
-}
+import type { DrawingOverlayProps, Point } from "@/components/workspace/canvas/drawing/types/drawing-overlay";
 
 /**
  * SVG layer that renders all committed shapes plus the in-progress draft

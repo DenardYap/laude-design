@@ -5,14 +5,7 @@ import type { DragEvent } from 'react';
 
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import {
-  ChevronDown,
-  ChevronRight,
-  FolderClosed,
-  FolderOpen,
-  FolderPlus,
-  Plus,
-} from "lucide-react";
+import { FolderPlus, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -33,13 +26,9 @@ import { createFolder, moveFolder } from "@/server/actions/folders";
 import { createDesign, moveDesign } from "@/server/actions/designs";
 
 import { FolderChildren } from "./folder-children";
-
-interface FilesTreeProps {
-  projectId: string;
-  projectName: string;
-  folders: FolderDTO[];
-  designs: DesignDTO[];
-}
+import { ProjectRootRow } from "@/components/workspace/canvas/files-tree/project-root-row";
+import { RootEmptyState } from "@/components/workspace/canvas/files-tree/root-empty-state";
+import type { FilesTreeProps } from "@/components/workspace/canvas/files-tree/types/files-tree";
 
 /**
  * Renders the project as an explicit folder tree:
@@ -251,58 +240,3 @@ export function FilesTree({
   );
 }
 
-interface ProjectRootRowProps {
-  name: string;
-  expanded: boolean;
-  onToggle: () => void;
-  dropTarget?: boolean;
-}
-
-function ProjectRootRow({ name, expanded, onToggle, dropTarget }: ProjectRootRowProps) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={expanded}
-      className={cn(
-        "group flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-sm font-semibold text-ink",
-        "hover:bg-surface-sunken/60",
-        dropTarget && "bg-surface-sunken ring-1 ring-border-strong hover:bg-surface-sunken",
-      )}
-    >
-      {expanded ? (
-        <ChevronDown className="size-3.5 shrink-0 text-ink-muted" />
-      ) : (
-        <ChevronRight className="size-3.5 shrink-0 text-ink-muted" />
-      )}
-      {expanded ? (
-        <FolderOpen className="size-3.5 shrink-0 text-ink" />
-      ) : (
-        <FolderClosed className="size-3.5 shrink-0 text-ink" />
-      )}
-      <span className="truncate">{name}</span>
-    </button>
-  );
-}
-
-/**
- * Empty state rendered indented under the project root, so the visual
- * relationship "this is the root folder, and it contains nothing yet" is
- * preserved even when there are zero items.
- */
-function RootEmptyState() {
-  return (
-    <div className="relative pb-2 pl-6 pr-2 pt-1">
-      {/* Same guide-line position as nested children at depth=1 (chevron
-          center of the root row sits ~13px from the container's left). */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-2 left-[13px] top-0 w-px bg-border/60"
-      />
-      <p className="text-xs text-ink-muted">
-        No files yet — right-click anywhere or use the buttons above to create
-        your first folder or design.
-      </p>
-    </div>
-  );
-}

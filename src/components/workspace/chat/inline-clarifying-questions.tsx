@@ -1,37 +1,22 @@
 "use client";
 
 import { useEffect } from "react";
-import type { ReactNode } from "react";
 import { HelpCircle, Loader2 } from "lucide-react";
 import { match } from "ts-pattern";
 
 import type { ClarifyingQuestionSetDTO } from "@/app/api/sessions/[sessionId]/questions/route";
-import type { ClarifyingQuestionItem } from "@/app/api/sessions/[sessionId]/questions/route";
 import { useQuestionSets } from "@/components/workspace/chat/hooks/use-question-sets";
 import {
   QuestionSetBody,
   ReadOnlyBody,
 } from "@/components/workspace/chat/question-set-body";
-
-interface InlineClarifyingQuestionsProps {
-  sessionId: string;
-  /**
-   * AI SDK tool-part state. `input-streaming` means the model is still
-   * filling in the questions; anything else means the input is finalized.
-   */
-  state?: string;
-  /** Question set id from the tool call's output. Undefined while the tool is still streaming. */
-  questionSetId?: string;
-  /** Pulled from the tool call's input so the questions render before output lands. */
-  fallbackRationale?: string;
-  fallbackItems?: ClarifyingQuestionItem[];
-}
+import type { InlineClarifyingQuestionsProps } from "@/components/workspace/chat/types/questions";
 
 // ---------------------------------------------------------------------------
 // QuestionCard — surface container
 // ---------------------------------------------------------------------------
 
-function QuestionCard({ children }: { children: ReactNode }) {
+function QuestionCard({ children }: { children: React.ReactNode }) {
   return (
     <div className="my-2 rounded-2xl border border-border bg-surface p-3.5">
       {children}
@@ -116,8 +101,7 @@ export function InlineClarifyingQuestions({
   // makes the loader flicker. Once the part transitions past streaming (or we
   // already have the persisted `set`), we commit — and never flip back.
   const isInputStreaming = state === "input-streaming";
-  const items: ClarifyingQuestionItem[] =
-    set?.questions.items ?? fallbackItems ?? [];
+  const items = set?.questions.items ?? fallbackItems ?? [];
 
   if (!set && (isInputStreaming || items.length === 0)) {
     return (

@@ -4,19 +4,10 @@ import { useEffect, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, RefObject } from 'react';
 
 import { useWorkspaceStore } from "@/stores/workspace-store";
-import type { ScreenshotRect } from "@/components/workspace/canvas/use-screenshot";
-
-interface ScreenshotAreaOverlayProps {
-  /** Element being captured. The overlay renders on top of its bounding box. */
-  captureRef: RefObject<HTMLDivElement | null>;
-  /** Called with the user's selection in parent-page viewport CSS coords. */
-  onCapture: (rect: ScreenshotRect) => void;
-}
-
-interface Point {
-  x: number;
-  y: number;
-}
+import type { ScreenshotRect } from "@/components/workspace/canvas/hooks/use-screenshot";
+import { DimWithCutout } from "@/components/workspace/canvas/dim-with-cutout";
+import { HintLabel } from "@/components/workspace/canvas/hint-label";
+import type { ScreenshotAreaOverlayProps, Point } from "@/components/workspace/canvas/types/screenshot";
 
 /**
  * Snipping-tool style selection overlay. Mounted at the workspace level so
@@ -198,44 +189,3 @@ export function ScreenshotAreaOverlay({
   );
 }
 
-function DimWithCutout({
-  sel,
-  bounds,
-}: {
-  sel: { left: number; top: number; width: number; height: number };
-  bounds: DOMRect;
-}) {
-  // Local coords (origin = overlay's top-left).
-  const x = sel.left - bounds.left;
-  const y = sel.top - bounds.top;
-  const w = sel.width;
-  const h = sel.height;
-  return (
-    <>
-      <div
-        className="absolute bg-ink/25"
-        style={{ left: 0, top: 0, right: 0, height: Math.max(0, y) }}
-      />
-      <div
-        className="absolute bg-ink/25"
-        style={{ left: 0, top: y + h, right: 0, bottom: 0 }}
-      />
-      <div
-        className="absolute bg-ink/25"
-        style={{ left: 0, top: y, width: Math.max(0, x), height: h }}
-      />
-      <div
-        className="absolute bg-ink/25"
-        style={{ left: x + w, top: y, right: 0, height: h }}
-      />
-    </>
-  );
-}
-
-function HintLabel() {
-  return (
-    <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-[11px] font-medium text-background shadow-lg">
-      Drag to capture an area · Esc to cancel
-    </div>
-  );
-}
