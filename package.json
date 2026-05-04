@@ -7,7 +7,7 @@
     "dev:next": "next dev",
     "db:up": "docker compose up -d --wait db",
     "db:down": "docker compose down",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
