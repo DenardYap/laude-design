@@ -25,11 +25,11 @@ export default async function SignInPage() {
   if (session?.user) redirect("/projects");
 
   return (
-    <main className="relative grid min-h-screen place-items-center px-6">
+    <main className="relative grid min-h-[100dvh] place-items-center px-4 py-8 sm:px-6">
       <div className="pointer-events-none absolute inset-x-0 top-[-10%] -z-10 mx-auto h-[420px] w-[120%] max-w-[1600px] rounded-2xl bg-brand/40 blur-3xl" />
       <Link
         href="/"
-        className="absolute left-6 top-6 inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink"
+        className="absolute left-4 top-4 inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink sm:left-6 sm:top-6"
       >
         <ArrowLeft className="size-4" />
         Back
@@ -69,7 +69,21 @@ export default async function SignInPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-ink-subtle">
-          By continuing you agree to our Terms and Privacy Policy.
+          By continuing you agree to our{" "}
+          <Link
+            href="/terms"
+            className="font-medium text-ink-muted underline-offset-4 hover:text-ink hover:underline"
+          >
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link
+            href="/privacy"
+            className="font-medium text-ink-muted underline-offset-4 hover:text-ink hover:underline"
+          >
+            Privacy Policy
+          </Link>
+          .
         </p>
       </div>
     </main>

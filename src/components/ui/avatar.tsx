@@ -1,13 +1,15 @@
 "use client";
 
-import * as React from "react";
+import { forwardRef } from 'react';
+import type { ComponentPropsWithoutRef, ElementRef } from 'react';
+
 import * as AvatarPrimitive from "@radix-ui/react-avatar";
 
 import { cn } from "@/lib/utils";
 
-const Avatar = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
+const Avatar = forwardRef<
+  ElementRef<typeof AvatarPrimitive.Root>,
+  ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
 >(({ className, ...props }, ref) => (
   <AvatarPrimitive.Root
     ref={ref}
@@ -17,21 +19,28 @@ const Avatar = React.forwardRef<
 ));
 Avatar.displayName = AvatarPrimitive.Root.displayName;
 
-const AvatarImage = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Image>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
+const AvatarImage = forwardRef<
+  ElementRef<typeof AvatarPrimitive.Image>,
+  ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
+>(({ className, referrerPolicy = "no-referrer", ...props }, ref) => (
+  // Google's `lh3.googleusercontent.com` (and some GitHub avatar variants)
+  // reject requests when the browser sends a referrer the CDN doesn't like,
+  // which silently falls through to the AvatarFallback. `no-referrer` is the
+  // canonical fix for cross-origin avatar URLs and is safe — these images
+  // are public and don't need referrer-based auth. Callers can still
+  // override via prop.
   <AvatarPrimitive.Image
     ref={ref}
+    referrerPolicy={referrerPolicy}
     className={cn("aspect-square h-full w-full", className)}
     {...props}
   />
 ));
 AvatarImage.displayName = AvatarPrimitive.Image.displayName;
 
-const AvatarFallback = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Fallback>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
+const AvatarFallback = forwardRef<
+  ElementRef<typeof AvatarPrimitive.Fallback>,
+  ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
 >(({ className, ...props }, ref) => (
   <AvatarPrimitive.Fallback
     ref={ref}

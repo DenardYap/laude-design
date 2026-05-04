@@ -45,11 +45,12 @@ function isAllowedPackage(spec: string): boolean {
   return ALLOWED_PACKAGES.has(root);
 }
 
-function scriptKindFor(path: string): ts.ScriptKind {
+function scriptKindFor(path: string): ts.ScriptKind | "css" {
   if (path.endsWith(".tsx")) return ts.ScriptKind.TSX;
   if (path.endsWith(".ts")) return ts.ScriptKind.TS;
   if (path.endsWith(".jsx")) return ts.ScriptKind.JSX;
   if (path.endsWith(".js")) return ts.ScriptKind.JS;
+  if (path.endsWith(".css")) return "css";
   return ts.ScriptKind.Unknown;
 }
 
@@ -108,6 +109,9 @@ export function validateDesignFile(
     });
     return errors;
   }
+
+  // CSS files don't need TypeScript parsing or import/export analysis.
+  if (kind === "css") return errors;
 
   const source = ts.createSourceFile(
     path,

@@ -1,11 +1,16 @@
 import {
+  Camera,
   CheckCircle2,
   FilePlus,
   FileText,
   FolderOpen,
+  FolderInput,
+  FolderPlus,
+  FolderTree,
   HelpCircle,
   ListChecks,
   PencilLine,
+  Search,
   Tag,
   Trash2,
   Wrench,
@@ -31,10 +36,15 @@ const TOOL_DISPLAY: Record<string, ToolDisplay> = {
     pastLabel: "Listed designs",
     icon: FolderOpen,
   },
-  readDesign: {
-    activeLabel: "Reading design",
-    pastLabel: "Read design",
+  readDesignOutline: {
+    activeLabel: "Reading design outline",
+    pastLabel: "Read design outline",
     icon: FileText,
+  },
+  grepDesign: {
+    activeLabel: "Searching design",
+    pastLabel: "Searched design",
+    icon: Search,
   },
   editDesign: {
     activeLabel: "Editing design",
@@ -51,6 +61,26 @@ const TOOL_DISPLAY: Record<string, ToolDisplay> = {
     pastLabel: "Renamed design",
     icon: Tag,
   },
+  listFolders: {
+    activeLabel: "Listing folders",
+    pastLabel: "Listed folders",
+    icon: FolderTree,
+  },
+  createFolder: {
+    activeLabel: "Creating folder",
+    pastLabel: "Created folder",
+    icon: FolderPlus,
+  },
+  moveDesign: {
+    activeLabel: "Moving design",
+    pastLabel: "Moved design",
+    icon: FolderInput,
+  },
+  moveFolder: {
+    activeLabel: "Moving folder",
+    pastLabel: "Moved folder",
+    icon: FolderInput,
+  },
   askClarifyingQuestions: {
     activeLabel: "Asking clarifying questions",
     pastLabel: "Asked clarifying questions",
@@ -65,6 +95,11 @@ const TOOL_DISPLAY: Record<string, ToolDisplay> = {
     activeLabel: "Completing step",
     pastLabel: "Completed step",
     icon: CheckCircle2,
+  },
+  screenshotDesign: {
+    activeLabel: "Reviewing the design",
+    pastLabel: "Reviewed the design",
+    icon: Camera,
   },
 };
 

@@ -2,14 +2,26 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isDesktopUserAgent } from "@/lib/server-viewport";
 import { getWorkspaceData } from "@/lib/workspace/queries";
 import { ProjectWorkspace } from "@/components/workspace/project-workspace";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  // Ownership-scoped lookup. Without this filter, a logged-in user (or even
+  // an unauthenticated visitor, since `findUnique` doesn't care) could
+  // probe arbitrary project IDs and read back the project name in the
+  // <title> tag — a low-impact but real cross-tenant info leak. The data
+  // page below still does the full ownership check + 404, so this only
+  // affects the browser tab title.
+  const session = await auth();
+  if (!session?.user?.id) return { title: "Project · Laude Design" };
   const { id } = await params;
-  const project = await db.project.findUnique({ where: { id }, select: { name: true } });
+  const project = await db.project.findFirst({
+    where: { id, userId: session.user.id },
+    select: { name: true },
+  });
   return { title: project ? `${project.name} · Laude Design` : "Project · Laude Design" };
 }
 
@@ -25,11 +37,14 @@ export default async function ProjectWorkspacePage({
   const data = await getWorkspaceData(id, session.user.id);
   if (!data) notFound();
 
-  const projects = await db.project.findMany({
-    where: { userId: session.user.id },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, name: true },
-  });
+  const [projects, ssrIsDesktop] = await Promise.all([
+    db.project.findMany({
+      where: { userId: session.user.id },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, name: true },
+    }),
+    isDesktopUserAgent(),
+  ]);
 
   return (
     <ProjectWorkspace
@@ -44,6 +59,7 @@ export default async function ProjectWorkspacePage({
         image: session.user.image ?? null,
       }}
       allProjects={projects}
+      ssrIsDesktop={ssrIsDesktop}
     />
   );
 }

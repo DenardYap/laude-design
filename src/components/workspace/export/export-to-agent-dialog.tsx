@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useEffect, useMemo, useState } from 'react';
 import { FolderArchive } from "lucide-react";
 import { toast } from "sonner";
 
@@ -59,7 +59,7 @@ function ProjectZipButton({
   folders: FolderDTO[];
   designs: DesignDTO[];
 }) {
-  const [pending, setPending] = React.useState(false);
+  const [pending, setPending] = useState(false);
 
   async function handleDownload() {
     if (pending) return;
@@ -172,15 +172,15 @@ export function ExportToAgentDialog({
   const setOpen = useWorkspaceStore((s) => s.setExportOpen);
   const activeTab = useWorkspaceStore((s) => s.activeTabByProject[projectId] ?? "files");
 
-  const initialDesignId = React.useMemo(() => {
+  const initialDesignId = useMemo(() => {
     if (activeTab.startsWith("design:")) return activeTab.replace(/^design:/, "");
     return designs[0]?.id ?? null;
   }, [activeTab, designs]);
 
-  const [chosenId, setChosenId] = React.useState<string | null>(initialDesignId);
-  const [mode, setMode] = React.useState<ExportMode>("image");
+  const [chosenId, setChosenId] = useState<string | null>(initialDesignId);
+  const [mode, setMode] = useState<ExportMode>("image");
 
-  React.useEffect(() => {
+  useEffect(() => {
     setChosenId(initialDesignId);
   }, [initialDesignId, open]);
 

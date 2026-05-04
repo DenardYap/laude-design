@@ -1,11 +1,10 @@
-import * as React from "react";
-
+import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from "@/lib/utils";
 
-interface SectionHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
+interface SectionHeaderProps extends HTMLAttributes<HTMLDivElement> {
   title: string;
   description?: string;
-  actions?: React.ReactNode;
+  actions?: ReactNode;
 }
 
 /**

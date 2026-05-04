@@ -1,15 +1,14 @@
-import * as React from "react";
-
+import type { ReactNode } from 'react';
 import { cn } from "@/lib/utils";
 
 interface EmptyStateProps {
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   title: string;
   description?: string;
   /**
    * Empty states must include a CTA per the design rules. Make this prominent.
    */
-  action: React.ReactNode;
+  action: ReactNode;
   className?: string;
 }
 

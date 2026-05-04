@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useRef, useState } from 'react';
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { File as FileIcon } from "lucide-react";
@@ -15,34 +15,75 @@ import {
 } from "@/components/ui";
 import type { DesignDTO, FolderDTO } from "@/lib/workspace/types";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+import { useOptimisticFilesStore } from "@/stores/optimistic-files-store";
 import { deleteDesign, moveDesign, renameDesign } from "@/server/actions/designs";
 
-import { InlineRenameInput } from "./inline-rename-input";
+import { InlineRenameInput } from "@/components/shared/inline-rename-input";
 
 interface DesignRowProps {
   projectId: string;
   design: DesignDTO;
   folders: FolderDTO[];
+  designs: DesignDTO[];
   depth: number;
 }
 
-export function DesignRow({ projectId, design, folders, depth }: DesignRowProps) {
+export function DesignRow({ projectId, design, folders, designs, depth }: DesignRowProps) {
   const router = useRouter();
   const openTab = useWorkspaceStore((s) => s.openDesignTab);
-  const [renaming, setRenaming] = React.useState(false);
+  const setDesignRename = useOptimisticFilesStore((s) => s.setDesignRename);
+  const clearDesignRename = useOptimisticFilesStore(
+    (s) => s.clearDesignRename,
+  );
+  const markDesignDeleted = useOptimisticFilesStore(
+    (s) => s.markDesignDeleted,
+  );
+  const unmarkDesignDeleted = useOptimisticFilesStore(
+    (s) => s.unmarkDesignDeleted,
+  );
+  const setDesignFolder = useOptimisticFilesStore((s) => s.setDesignFolder);
+  const clearDesignFolder = useOptimisticFilesStore(
+    (s) => s.clearDesignFolder,
+  );
+  const [renaming, setRenaming] = useState(false);
+  const renameTriggeredRef = useRef(false);
 
   const rename = useMutation({
-    mutationFn: (n: string) => renameDesign(design.id, n),
-    onSuccess: () => {
+    mutationFn: async (n: string) => {
+      const next = n.trim() || "Untitled";
+      await renameDesign(design.id, n);
+      return next;
+    },
+    onMutate: (n) => {
+      const next = n.trim() || "Untitled";
+      setDesignRename(design.id, next);
       setRenaming(false);
+    },
+    onSuccess: (newName) => {
+      toast.success(`Renamed design to “${newName}”`);
       router.refresh();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Rename failed"),
+    onError: (e) => {
+      clearDesignRename(design.id);
+      toast.error(e instanceof Error ? e.message : "Rename failed");
+    },
   });
   const remove = useMutation({
-    mutationFn: () => deleteDesign(design.id),
-    onSuccess: () => router.refresh(),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Delete failed"),
+    mutationFn: async () => {
+      await deleteDesign(design.id);
+      return design.name;
+    },
+    onMutate: () => {
+      markDesignDeleted(design.id);
+    },
+    onSuccess: (name) => {
+      toast.success(`Deleted “${name}”`);
+      router.refresh();
+    },
+    onError: (e) => {
+      unmarkDesignDeleted(design.id);
+      toast.error(e instanceof Error ? e.message : "Delete failed");
+    },
   });
 
   return (
@@ -67,7 +108,23 @@ export function DesignRow({ projectId, design, folders, depth }: DesignRowProps)
           {renaming ? (
             <InlineRenameInput
               initialValue={design.name}
-              onCommit={(v) => rename.mutate(v)}
+              onCommit={(v) => {
+                const trimmed = v.trim().slice(0, 80) || "Untitled design";
+                if (trimmed === design.name) {
+                  setRenaming(false);
+                  return;
+                }
+                const siblingNames = [
+                  ...folders.filter((f) => f.parentId === design.folderId),
+                  ...designs.filter((d) => d.id !== design.id && d.folderId === design.folderId),
+                ].map((x) => x.name.toLowerCase());
+                if (siblingNames.includes(trimmed.toLowerCase())) {
+                  toast.error(`"${trimmed}" already exists in this folder`);
+                  setRenaming(false);
+                  return;
+                }
+                rename.mutate(v);
+              }}
               onCancel={() => setRenaming(false)}
             />
           ) : (
@@ -81,18 +138,34 @@ export function DesignRow({ projectId, design, folders, depth }: DesignRowProps)
           )}
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent>
+      <ContextMenuContent
+        onCloseAutoFocus={(e) => {
+          if (renameTriggeredRef.current) {
+            e.preventDefault();
+            renameTriggeredRef.current = false;
+          }
+        }}
+      >
         <ContextMenuItem onSelect={() => openTab(projectId, design.id)}>Open</ContextMenuItem>
-        <ContextMenuItem onSelect={() => setRenaming(true)}>Rename</ContextMenuItem>
+        <ContextMenuItem
+          onSelect={() => {
+            renameTriggeredRef.current = true;
+            setRenaming(true);
+          }}
+        >
+          Rename
+        </ContextMenuItem>
         {folders.length > 0 && design.folderId !== null ? (
           <>
             <ContextMenuSeparator />
             <ContextMenuItem
               onSelect={async () => {
+                setDesignFolder(design.id, null);
                 try {
                   await moveDesign(design.id, null);
                   router.refresh();
                 } catch (err) {
+                  clearDesignFolder(design.id);
                   toast.error(err instanceof Error ? err.message : "Move failed");
                 }
               }}

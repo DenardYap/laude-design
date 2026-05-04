@@ -1,15 +1,10 @@
 "use client";
 
-import * as React from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { cn } from "@/lib/utils";
-
-interface MarkdownProps {
-  children: string;
-  className?: string;
-}
+import type { MarkdownProps } from "@/components/workspace/chat/types/misc";
 
 const COMPONENTS: Components = {
   p: ({ className, ...props }) => (

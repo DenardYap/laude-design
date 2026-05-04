@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useMemo, useState } from 'react';
 import { Check, Copy, Download } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,8 +13,8 @@ interface PromptExportTabProps {
 }
 
 export function PromptExportTab({ design }: PromptExportTabProps) {
-  const text = React.useMemo(() => buildExportPrompt({ design }), [design]);
-  const [copied, setCopied] = React.useState(false);
+  const text = useMemo(() => buildExportPrompt({ design }), [design]);
+  const [copied, setCopied] = useState(false);
 
   async function copy() {
     await navigator.clipboard.writeText(text);

@@ -37,3 +37,27 @@ export function collectDescendants(
 
   return { designCount, folderCount: folderIds.size };
 }
+
+/**
+ * Returns true if `candidateId` is in the ancestor chain of `folderId`
+ * (i.e. moving `candidateId` into `folderId` would create a cycle).
+ * Walks parent pointers upwards with a visited guard to stop on the rare
+ * case of an already-corrupted tree.
+ */
+export function isDescendantOf(
+  folderId: string,
+  candidateId: string,
+  folders: readonly FolderDTO[],
+): boolean {
+  if (folderId === candidateId) return true;
+  const byId = new Map(folders.map((f) => [f.id, f]));
+  const seen = new Set<string>();
+  let cursor: string | null = folderId;
+  while (cursor) {
+    if (seen.has(cursor)) return false;
+    seen.add(cursor);
+    if (cursor === candidateId) return true;
+    cursor = byId.get(cursor)?.parentId ?? null;
+  }
+  return false;
+}

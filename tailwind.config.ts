@@ -63,6 +63,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sketch: ["var(--font-sketch)", "cursive"],
       },
       keyframes: {
         "accordion-down": {

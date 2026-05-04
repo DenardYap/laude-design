@@ -34,6 +34,7 @@ export default async function ProjectsPage() {
         />
         <MultiSelectFilter
           scope="projects"
+          dimension="recency"
           options={[
             { value: "today", label: "Today" },
             { value: "week", label: "This week" },

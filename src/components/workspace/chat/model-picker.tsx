@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useMemo, useState } from 'react';
 import Link from "next/link";
 import { AlertTriangle, Check, ChevronDown, ExternalLink } from "lucide-react";
 
@@ -22,32 +22,32 @@ import {
   PROVIDER_LABEL,
   PROVIDER_ORDER,
   resolveModelOption,
-  type ApiKeySummary,
-  type ModelOption,
-  type ModelProvider,
 } from "@/lib/workspace/types";
-import { useWorkspaceStore } from "@/stores/workspace-store";
-
-interface ModelPickerProps {
-  projectId: string;
-  apiKeys: ApiKeySummary[];
-}
-
-type ProviderFilter = ModelProvider | "ALL";
+import type { ModelOption, ModelProvider } from "@/lib/workspace/types";
+import { resolveSessionModel, useWorkspaceStore } from "@/stores/workspace-store";
+import type {
+  ModelPickerProps,
+  ModelRowProps,
+  ProviderFilter,
+  ProviderFilterRowProps,
+  ProviderHeadingProps,
+} from "@/components/workspace/chat/types/model-picker";
 
 const PROVIDER_FILTERS: ReadonlyArray<{ value: ProviderFilter; label: string }> = [
   { value: "ALL", label: "All" },
   ...PROVIDER_ORDER.map((p) => ({ value: p, label: PROVIDER_LABEL[p] })),
 ];
 
-export function ModelPicker({ projectId, apiKeys }: ModelPickerProps) {
-  const selected = useWorkspaceStore((s) => s.selectedModelByProject[projectId]);
+export function ModelPicker({ projectId, sessionId, apiKeys }: ModelPickerProps) {
+  const selected = useWorkspaceStore(
+    (s) => resolveSessionModel(sessionId, projectId, s),
+  );
   const setSelected = useWorkspaceStore((s) => s.setSelectedModel);
 
-  const [open, setOpen] = React.useState(false);
-  const [providerFilter, setProviderFilter] = React.useState<ProviderFilter>("ALL");
+  const [open, setOpen] = useState(false);
+  const [providerFilter, setProviderFilter] = useState<ProviderFilter>("ALL");
 
-  const configured = React.useMemo(
+  const configured = useMemo(
     () => new Set(apiKeys.map((k) => k.provider)),
     [apiKeys],
   );
@@ -55,7 +55,7 @@ export function ModelPicker({ projectId, apiKeys }: ModelPickerProps) {
   const activeModel: ModelOption = resolveModelOption(selected);
   const activeOk = configured.has(activeModel.provider);
 
-  const groups = React.useMemo(() => {
+  const groups = useMemo(() => {
     const visible =
       providerFilter === "ALL"
         ? MODEL_OPTIONS
@@ -74,7 +74,7 @@ export function ModelPicker({ projectId, apiKeys }: ModelPickerProps) {
 
   function handleSelect(m: ModelOption) {
     if (!configured.has(m.provider)) return;
-    setSelected(projectId, m.modelId, m.provider);
+    setSelected(projectId, sessionId, m.modelId, m.provider);
     setOpen(false);
   }
 
@@ -94,7 +94,11 @@ export function ModelPicker({ projectId, apiKeys }: ModelPickerProps) {
           <ChevronDown className="size-3 shrink-0 opacity-60" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={6} className="w-[22rem] p-0">
+      <PopoverContent
+        align="end"
+        sideOffset={6}
+        className="w-[min(22rem,calc(100vw-1rem))] p-0"
+      >
         <Command>
           <CommandInput placeholder="Search models…" />
           <ProviderFilterRow value={providerFilter} onChange={setProviderFilter} />
@@ -133,10 +137,6 @@ export function ModelPicker({ projectId, apiKeys }: ModelPickerProps) {
   );
 }
 
-interface ProviderFilterRowProps {
-  value: ProviderFilter;
-  onChange: (value: ProviderFilter) => void;
-}
 
 function ProviderFilterRow({ value, onChange }: ProviderFilterRowProps) {
   return (
@@ -163,11 +163,6 @@ function ProviderFilterRow({ value, onChange }: ProviderFilterRowProps) {
   );
 }
 
-interface ProviderHeadingProps {
-  provider: ModelProvider;
-  configured: boolean;
-  lastFour?: string;
-}
 
 function ProviderHeading({ provider, configured, lastFour }: ProviderHeadingProps) {
   return (
@@ -194,12 +189,6 @@ function ProviderHeading({ provider, configured, lastFour }: ProviderHeadingProp
   );
 }
 
-interface ModelRowProps {
-  model: ModelOption;
-  active: boolean;
-  disabled: boolean;
-  onSelect: () => void;
-}
 
 function ModelRow({ model, active, disabled, onSelect }: ModelRowProps) {
   // cmdk filters by `value`. Include label, modelId, provider name, and

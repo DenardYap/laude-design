@@ -1,36 +1,47 @@
 "use client";
 
-import * as React from "react";
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { cn } from "@/lib/utils";
 
 type Phase = "loading" | "fading" | "hidden";
 
 const FADE_MS = 280;
-// Minimum on-screen time so the overlay doesn't flash for fast bundles —
-// enough to register as deliberate loading feedback, not a flicker.
+// Minimum on-screen time so the overlay doesn't flash for fast bundles.
 const MIN_VISIBLE_MS = 600;
-// Hard ceiling: even if the iframe never fires `load` (network blocked,
-// CDN down, etc.) we always get out of the user's way after this long.
-const MAX_VISIBLE_MS = 3500;
+// Hard ceiling — even if Sandpack never signals ready (slow network, timeout)
+// we always get out of the user's way after this long.
+const MAX_VISIBLE_MS = 12_000;
+
+interface CanvasLoadingOverlayProps {
+  /**
+   * Set to true once the canvas is compiled and ready to show. When this
+   * flips to true the overlay begins its two-phase fade out. When the
+   * component remounts (via a key change) it always starts in the "loading"
+   * phase regardless of this prop.
+   */
+  ready?: boolean;
+}
 
 /**
- * Sits over the Sandpack iframe area while a freshly-mounted design is
- * bundling and booting. Two-phase fade-out (`loading → fading → hidden`):
- *  1. Wait for the iframe's `load` event OR a short minimum delay,
- *     whichever finishes last.
- *  2. Fade opacity to 0, then unmount.
+ * Sits over the Sandpack iframe area while a freshly-mounted or recently-
+ * updated design is bundling and booting. Two-phase fade-out
+ * (`loading → fading → hidden`):
+ *  1. Wait until `ready` becomes true (signalled by DesignerInternals via
+ *     sandpack.status) OR until MAX_VISIBLE_MS elapses as a safety net.
+ *  2. Respect a MIN_VISIBLE_MS floor so the overlay never flickers.
+ *  3. Fade opacity to 0, then unmount.
  *
  * Critically this component renders as a SIBLING of `SandpackProvider`, not
  * a child — so it never participates in Sandpack's internal layout, never
  * blocks the bundler's intersection observer, and never holds a reference
  * into Sandpack state. It is purely presentational.
  */
-export function CanvasLoadingOverlay() {
-  const [phase, setPhase] = React.useState<Phase>("loading");
-  const mountedAtRef = React.useRef<number>(Date.now());
+export function CanvasLoadingOverlay({ ready = false }: CanvasLoadingOverlayProps) {
+  const [phase, setPhase] = useState<Phase>("loading");
+  const mountedAtRef = useRef<number>(Date.now());
 
-  const startFade = React.useCallback(() => {
+  const startFade = useCallback(() => {
     const elapsed = Date.now() - mountedAtRef.current;
     const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
     window.setTimeout(() => {
@@ -38,48 +49,19 @@ export function CanvasLoadingOverlay() {
     }, remaining);
   }, []);
 
-  React.useEffect(() => {
+  // Primary ready signal from DesignerInternals (sandpack.status or HMR timer).
+  useEffect(() => {
+    if (ready) startFade();
+  }, [ready, startFade]);
+
+  useEffect(() => {
     if (phase !== "fading") return;
     const t = window.setTimeout(() => setPhase("hidden"), FADE_MS);
     return () => window.clearTimeout(t);
   }, [phase]);
 
-  // Listen for the Sandpack preview iframe to finish its initial document
-  // load. We poll briefly for the iframe element because it's mounted by
-  // Sandpack on a microtask after our own effect runs. Once we have it,
-  // a single `load` listener is enough.
-  React.useEffect(() => {
-    let cancelled = false;
-    let iframe: HTMLIFrameElement | null = null;
-
-    function onLoad() {
-      if (!cancelled) startFade();
-    }
-
-    let pollAttempts = 0;
-    const pollInterval = window.setInterval(() => {
-      pollAttempts += 1;
-      if (cancelled) return;
-      iframe = document.querySelector(
-        ".sp-preview-iframe",
-      ) as HTMLIFrameElement | null;
-      if (iframe) {
-        window.clearInterval(pollInterval);
-        iframe.addEventListener("load", onLoad, { once: true });
-      } else if (pollAttempts > 40) {
-        window.clearInterval(pollInterval);
-      }
-    }, 50);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(pollInterval);
-      iframe?.removeEventListener("load", onLoad);
-    };
-  }, [startFade]);
-
   // Hard safety net so the overlay never traps the user behind it.
-  React.useEffect(() => {
+  useEffect(() => {
     const t = window.setTimeout(startFade, MAX_VISIBLE_MS);
     return () => window.clearTimeout(t);
   }, [startFade]);
@@ -125,8 +107,6 @@ export function CanvasLoadingOverlay() {
  * the dasharray/dashoffset math live in CSS as plain percentages.
  */
 function BrushStrokeLoader() {
-  // SVG `offset-path` needs the curve as a CSS path() string, so it's
-  // declared once and reused for both the visible stroke and the brush tip.
   const curve = "M14 42 Q40 8 60 30 T106 22";
   return (
     <svg

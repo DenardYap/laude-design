@@ -1,19 +1,11 @@
 "use client";
 
-import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ListChecks, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { DesignPlanDTO } from "@/app/api/plans/[planId]/route";
-
-interface InlineDesignPlanProps {
-  /** Plan id from the planDesign tool call's output. May be undefined while still streaming. */
-  planId?: string;
-  /** Pulled from the tool call's input so the checklist renders before output lands. */
-  fallbackTitle?: string;
-  fallbackSteps?: { id: string; label: string }[];
-}
+import type { InlineDesignPlanProps } from "@/components/workspace/chat/types/misc";
 
 async function fetchPlan(planId: string): Promise<DesignPlanDTO | null> {
   const res = await fetch(`/api/plans/${planId}`);

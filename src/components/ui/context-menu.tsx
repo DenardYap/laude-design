@@ -1,6 +1,8 @@
 "use client";
 
-import * as React from "react";
+import { forwardRef } from 'react';
+import type { ComponentPropsWithoutRef, ElementRef } from 'react';
+
 import * as ContextMenuPrimitive from "@radix-ui/react-context-menu";
 
 import { cn } from "@/lib/utils";
@@ -10,9 +12,9 @@ const ContextMenuTrigger = ContextMenuPrimitive.Trigger;
 const ContextMenuGroup = ContextMenuPrimitive.Group;
 const ContextMenuPortal = ContextMenuPrimitive.Portal;
 
-const ContextMenuContent = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Content>
+const ContextMenuContent = forwardRef<
+  ElementRef<typeof ContextMenuPrimitive.Content>,
+  ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Content>
 >(({ className, ...props }, ref) => (
   <ContextMenuPrimitive.Portal>
     <ContextMenuPrimitive.Content
@@ -27,9 +29,9 @@ const ContextMenuContent = React.forwardRef<
 ));
 ContextMenuContent.displayName = ContextMenuPrimitive.Content.displayName;
 
-const ContextMenuItem = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Item> & { inset?: boolean }
+const ContextMenuItem = forwardRef<
+  ElementRef<typeof ContextMenuPrimitive.Item>,
+  ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Item> & { inset?: boolean }
 >(({ className, inset, ...props }, ref) => (
   <ContextMenuPrimitive.Item
     ref={ref}
@@ -43,9 +45,9 @@ const ContextMenuItem = React.forwardRef<
 ));
 ContextMenuItem.displayName = ContextMenuPrimitive.Item.displayName;
 
-const ContextMenuSeparator = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Separator>
+const ContextMenuSeparator = forwardRef<
+  ElementRef<typeof ContextMenuPrimitive.Separator>,
+  ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Separator>
 >(({ className, ...props }, ref) => (
   <ContextMenuPrimitive.Separator
     ref={ref}
@@ -55,9 +57,9 @@ const ContextMenuSeparator = React.forwardRef<
 ));
 ContextMenuSeparator.displayName = ContextMenuPrimitive.Separator.displayName;
 
-const ContextMenuLabel = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Label>,
-  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Label>
+const ContextMenuLabel = forwardRef<
+  ElementRef<typeof ContextMenuPrimitive.Label>,
+  ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Label>
 >(({ className, ...props }, ref) => (
   <ContextMenuPrimitive.Label
     ref={ref}

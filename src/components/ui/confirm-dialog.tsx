@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useState } from 'react';
 
 import {
   Dialog,
@@ -42,7 +42,7 @@ export function ConfirmDialog({
   tone = "primary",
   onConfirm,
 }: ConfirmDialogProps) {
-  const [pending, setPending] = React.useState(false);
+  const [pending, setPending] = useState(false);
 
   async function handleConfirm() {
     try {

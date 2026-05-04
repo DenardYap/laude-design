@@ -1,4 +1,5 @@
-import * as React from "react";
+import { forwardRef } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
@@ -36,12 +37,12 @@ const iconBadgeVariants = cva(
 );
 
 export interface IconBadgeProps
-  extends Omit<React.HTMLAttributes<HTMLSpanElement>, "children">,
+  extends Omit<HTMLAttributes<HTMLSpanElement>, "children">,
     VariantProps<typeof iconBadgeVariants> {
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
-const IconBadge = React.forwardRef<HTMLSpanElement, IconBadgeProps>(
+const IconBadge = forwardRef<HTMLSpanElement, IconBadgeProps>(
   ({ className, tone, size, shape, icon, ...props }, ref) => (
     <span
       ref={ref}

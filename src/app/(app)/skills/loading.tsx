@@ -2,10 +2,10 @@ import { PageHeader, Skeleton, Tabs, TabsList, TabsTrigger } from "@/components/
 
 export default function Loading() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Skills"
-        description="Markdown or text files the agent can use as context. Share publicly to help others."
+        description="Markdown or text files the agent can use as context. Click a skill to edit or share it."
       />
       <Tabs defaultValue="mine">
         <TabsList>
@@ -13,10 +13,14 @@ export default function Loading() {
           <TabsTrigger value="public">Public library</TabsTrigger>
         </TabsList>
       </Tabs>
-      <Skeleton className="h-9 max-w-md" />
-      <div className="space-y-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full" />
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-9 flex-1" />
+        <Skeleton className="h-9 w-20" />
+        <Skeleton className="h-9 w-24" />
+      </div>
+      <div className="space-y-px overflow-hidden rounded-lg border border-border bg-card">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full rounded-none" />
         ))}
       </div>
     </div>

@@ -1,4 +1,5 @@
-import * as React from "react";
+import { forwardRef } from 'react';
+import type { HTMLAttributes } from 'react';
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
@@ -21,10 +22,10 @@ const pillVariants = cva(
 );
 
 export interface PillProps
-  extends React.HTMLAttributes<HTMLSpanElement>,
+  extends HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof pillVariants> {}
 
-const Pill = React.forwardRef<HTMLSpanElement, PillProps>(
+const Pill = forwardRef<HTMLSpanElement, PillProps>(
   ({ className, tone, ...props }, ref) => (
     <span ref={ref} className={cn(pillVariants({ tone }), className)} {...props} />
   ),

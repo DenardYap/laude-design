@@ -1,48 +1,18 @@
 "use client";
 
-import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { match } from "ts-pattern";
 
 import { Textarea } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { useWorkspaceStore } from "@/stores/workspace-store";
 import type {
   AnswerValue,
   ClarifyingQuestionItem,
-  ClarifyingQuestionSetDTO,
 } from "@/app/api/sessions/[sessionId]/questions/route";
+import type { QuestionBlockProps } from "@/components/workspace/chat/types/questions";
 
-async function fetchSets(sessionId: string): Promise<ClarifyingQuestionSetDTO[]> {
-  const res = await fetch(`/api/sessions/${sessionId}/questions`);
-  if (!res.ok) throw new Error("Failed to load questions");
-  const data = (await res.json()) as { sets: ClarifyingQuestionSetDTO[] };
-  return data.sets;
-}
+export { useQuestionSets } from "@/components/workspace/chat/hooks/use-question-sets";
 
-export function useQuestionSets(sessionId: string) {
-  // New clarifying-question sets are only ever created during an agent turn
-  // (via a tool call). Once streaming ends, nothing new can appear until the
-  // next user message, so polling in that window is pure waste. Mutations
-  // (answer / dismiss) already invalidate this key directly.
-  const isStreaming = useWorkspaceStore(
-    (s) => Boolean(s.streamingSessionIds[sessionId]),
-  );
-  return useQuery({
-    queryKey: ["session-questions", sessionId],
-    queryFn: () => fetchSets(sessionId),
-    refetchInterval: isStreaming ? 2000 : false,
-    staleTime: 1000,
-  });
-}
-
-interface QuestionBlockProps {
-  question: ClarifyingQuestionItem;
-  value: AnswerValue | undefined;
-  disabled?: boolean;
-  onChange: (v: AnswerValue) => void;
-}
 
 export function QuestionBlock({
   question,

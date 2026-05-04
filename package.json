@@ -11,6 +11,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
@@ -39,6 +41,9 @@
     "@radix-ui/react-tooltip": "^1.1.6",
     "@tanstack/react-query": "^5.100.7",
     "@tanstack/react-query-devtools": "^5.100.7",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.37.0",
+    "@vercel/blob": "^2.3.3",
     "ai": "^6.0.172",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -47,8 +52,8 @@
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.469.0",
-    "next": "15.1.3",
-    "next-auth": "5.0.0-beta.25",
+    "next": "^15.5.15",
+    "next-auth": "5.0.0-beta.30",
     "next-themes": "^0.4.4",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -70,10 +75,17 @@
     "@types/react-dom": "^19.0.2",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.17.0",
-    "eslint-config-next": "15.1.3",
-    "postcss": "^8.4.49",
+    "eslint-config-next": "^15.5.15",
+    "postcss": "^8.5.13",
     "prisma": "^5.22.0",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2"
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.5"
+  },
+  "pnpm": {
+    "overrides": {
+      "picomatch": ">=4.0.4",
+      "postcss@<8.5.10": ">=8.5.10"
+    }
   }
 }

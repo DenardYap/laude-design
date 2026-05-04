@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { Check, Filter } from "lucide-react";
 
 import {
@@ -16,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui";
-import { useScopeFilters, type FilterScope } from "@/stores/filters-store";
+import { useScopeDimension, type FilterScope } from "@/stores/filters-store";
 import { cn } from "@/lib/utils";
 
 export interface FilterOption {
@@ -26,6 +25,11 @@ export interface FilterOption {
 
 interface MultiSelectFilterProps {
   scope: FilterScope;
+  /**
+   * Filter dimension (e.g. "recency", "size", "creator"). Each dimension is
+   * an independent multi-select; dimensions combine with AND across the row.
+   */
+  dimension: string;
   options: FilterOption[];
   label?: string;
   triggerVariant?: "outline" | "ghost";
@@ -34,13 +38,14 @@ interface MultiSelectFilterProps {
 
 export function MultiSelectFilter({
   scope,
+  dimension,
   options,
   label = "Filter",
   triggerVariant = "outline",
   showAsIcon = false,
 }: MultiSelectFilterProps) {
-  const { filters, toggleFilter, reset } = useScopeFilters(scope);
-  const count = filters.length;
+  const { values, toggle, reset } = useScopeDimension(scope, dimension);
+  const count = values.length;
 
   return (
     <Popover>
@@ -81,11 +86,11 @@ export function MultiSelectFilter({
             <CommandEmpty>No options.</CommandEmpty>
             <CommandGroup>
               {options.map((opt) => {
-                const isSelected = filters.includes(opt.value);
+                const isSelected = values.includes(opt.value);
                 return (
                   <CommandItem
                     key={opt.value}
-                    onSelect={() => toggleFilter(opt.value)}
+                    onSelect={() => toggle(opt.value)}
                     className="cursor-pointer"
                   >
                     <div

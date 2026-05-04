@@ -1,6 +1,8 @@
 "use client";
 
-import * as React from "react";
+import { useState, useTransition } from 'react';
+import type { ReactNode } from 'react';
+
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,7 +31,7 @@ export interface ProviderConfig {
   /** Friendly name of the destination dashboard ("Anthropic Console", etc). */
   dashboardLabel: string;
   /** Brand icon for the provider. */
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
 interface ApiKeyRowProps {
@@ -39,10 +41,10 @@ interface ApiKeyRowProps {
 
 export function ApiKeyRow({ config, existing }: ApiKeyRowProps) {
   const router = useRouter();
-  const [editing, setEditing] = React.useState(false);
-  const [showSecret, setShowSecret] = React.useState(false);
-  const [confirmDelete, setConfirmDelete] = React.useState(false);
-  const [pending, startTransition] = React.useTransition();
+  const [editing, setEditing] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   const form = useForm<ApiKeyInput>({
     resolver: zodResolver(ApiKeySchema),

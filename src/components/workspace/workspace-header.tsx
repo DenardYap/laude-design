@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
@@ -21,34 +21,36 @@ interface WorkspaceHeaderProps {
 
 export function WorkspaceHeader({ projectId, projectName, user }: WorkspaceHeaderProps) {
   const setExportOpen = useWorkspaceStore((s) => s.setExportOpen);
-  const [skillsOpen, setSkillsOpen] = React.useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-3 bg-surface px-4">
-      <div className="flex min-w-0 items-center gap-2">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-2 bg-surface px-2 sm:px-4 sm:gap-3">
+      <div className="flex min-w-0 items-center gap-1 sm:gap-2">
         <Link href="/projects" aria-label="Back to projects">
           <IconButton aria-label="Back to projects" icon={<ArrowLeft className="size-4" />} />
         </Link>
         <ProjectTitle projectId={projectId} projectName={projectName} />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         <Button
           variant="outline"
           size="sm"
-          className="rounded-full px-3"
+          className="rounded-full px-2 sm:px-3"
           onClick={() => setSkillsOpen(true)}
+          aria-label="Skills"
         >
           <Sparkles className="size-3.5" />
-          Skills
+          <span className="hidden sm:inline">Skills</span>
         </Button>
         <Button
           variant="primary"
           size="sm"
-          className="rounded-full px-3"
+          className="rounded-full px-2 sm:px-3"
           onClick={() => setExportOpen(true)}
         >
-          Export to Agent
+          <span className="hidden sm:inline">Export to Agent</span>
+          <span className="sm:hidden">Export</span>
         </Button>
         <UserMenu user={user} size="sm" />
       </div>
@@ -69,14 +71,14 @@ interface ProjectTitleProps {
 
 function ProjectTitle({ projectId, projectName }: ProjectTitleProps) {
   const router = useRouter();
-  const [editing, setEditing] = React.useState(false);
+  const [editing, setEditing] = useState(false);
   // Optimistic name lets the new title render immediately while the server
   // catches up — otherwise the input flashes back to the old name on blur.
-  const [optimisticName, setOptimisticName] = React.useState<string | null>(null);
-  const [draft, setDraft] = React.useState(projectName);
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [optimisticName, setOptimisticName] = useState<string | null>(null);
+  const [draft, setDraft] = useState(projectName);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setOptimisticName(null);
   }, [projectName]);
 
@@ -95,12 +97,12 @@ function ProjectTitle({ projectId, projectName }: ProjectTitleProps) {
     },
   });
 
-  const startEditing = React.useCallback(() => {
+  const startEditing = useCallback(() => {
     setDraft(displayName);
     setEditing(true);
   }, [displayName]);
 
-  const commit = React.useCallback(() => {
+  const commit = useCallback(() => {
     const trimmed = draft.trim();
     if (!trimmed || trimmed === displayName) {
       setEditing(false);
@@ -112,22 +114,26 @@ function ProjectTitle({ projectId, projectName }: ProjectTitleProps) {
     rename.mutate(trimmed);
   }, [draft, displayName, rename]);
 
-  const cancel = React.useCallback(() => {
+  const cancel = useCallback(() => {
     setDraft(displayName);
     setEditing(false);
   }, [displayName]);
 
-  React.useEffect(() => {
-    if (editing) {
-      inputRef.current?.select();
-    }
+  useEffect(() => {
+    if (!editing) return;
+    const frame = requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.select();
+    });
+    return () => cancelAnimationFrame(frame);
   }, [editing]);
 
   if (editing) {
     return (
       <input
         ref={inputRef}
-        autoFocus
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
@@ -142,7 +148,7 @@ function ProjectTitle({ projectId, projectName }: ProjectTitleProps) {
         }}
         maxLength={80}
         aria-label="Project name"
-        className="min-w-0 max-w-[280px] truncate rounded-md bg-surface-sunken px-1.5 py-0.5 text-sm font-semibold tracking-tight text-ink outline-none ring-2 ring-ring"
+        className="min-w-0 max-w-[140px] truncate rounded-md bg-surface-sunken px-1.5 py-0.5 text-sm font-semibold tracking-tight text-ink outline-none ring-2 ring-ring sm:max-w-[280px]"
       />
     );
   }
@@ -159,7 +165,7 @@ function ProjectTitle({ projectId, projectName }: ProjectTitleProps) {
         }
       }}
       title="Double-click to rename"
-      className="-mx-1.5 truncate rounded-md px-1.5 py-0.5 text-sm font-semibold tracking-tight text-ink hover:bg-surface-sunken focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="-mx-1.5 max-w-[140px] truncate rounded-md px-1.5 py-0.5 text-sm font-semibold tracking-tight text-ink hover:bg-surface-sunken focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-none"
     >
       {displayName}
     </h1>

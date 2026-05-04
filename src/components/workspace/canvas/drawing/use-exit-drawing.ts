@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { useCallback, useRef, useState } from 'react';
 
 import { selectShapes, useDrawingStore } from "@/stores/drawing-store";
 import { type ToolMode, useWorkspaceStore } from "@/stores/workspace-store";
@@ -36,25 +36,25 @@ export function useExitDrawing(projectId: string): ExitDrawingControl {
   const setWorkspaceTool = useWorkspaceStore((s) => s.setTool);
   const clear = useDrawingStore((s) => s.clear);
 
-  const [confirmOpen, setConfirmOpenRaw] = React.useState(false);
+  const [confirmOpen, setConfirmOpenRaw] = useState(false);
   const hasShapes = shapes.length > 0;
 
   // Stash the pending transition (and any follow-up action like "fire the
   // screenshot helper") in a ref so they survive the dialog round-trip
   // without forcing a re-render on every keystroke.
-  const pendingRef = React.useRef<{
+  const pendingRef = useRef<{
     next: ToolMode;
     after: (() => void) | null;
   } | null>(null);
 
-  const setConfirmOpen = React.useCallback((open: boolean) => {
+  const setConfirmOpen = useCallback((open: boolean) => {
     setConfirmOpenRaw(open);
     // Dismissing the dialog without confirming = user changed their mind.
     // Drop the pending transition so the next exit attempt starts fresh.
     if (!open) pendingRef.current = null;
   }, []);
 
-  const requestSwitch = React.useCallback(
+  const requestSwitch = useCallback(
     (next: ToolMode, after?: () => void) => {
       if (hasShapes) {
         pendingRef.current = { next, after: after ?? null };
@@ -67,12 +67,12 @@ export function useExitDrawing(projectId: string): ExitDrawingControl {
     [hasShapes, setWorkspaceTool],
   );
 
-  const requestExit = React.useCallback(
+  const requestExit = useCallback(
     () => requestSwitch("idle"),
     [requestSwitch],
   );
 
-  const confirmExit = React.useCallback(() => {
+  const confirmExit = useCallback(() => {
     const pending = pendingRef.current;
     pendingRef.current = null;
     clear(projectId);

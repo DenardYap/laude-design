@@ -28,3 +28,13 @@ export const SkillSchema = z.object({
   isPublic: z.boolean().default(false),
 });
 export type SkillInput = z.infer<typeof SkillSchema>;
+
+export const SkillUpdateSchema = z.object({
+  name: z.string().min(1, "Name is required").max(80),
+  description: z.string().max(280).nullable().optional(),
+  content: z
+    .string()
+    .min(1, "Skill content is required")
+    .max(64 * 1024, "Skill content must be <= 64 KB"),
+});
+export type SkillUpdateInput = z.infer<typeof SkillUpdateSchema>;

@@ -58,6 +58,7 @@ export { EmptyState } from "./empty-state";
 export { Eyebrow } from "./eyebrow";
 export type { EyebrowProps } from "./eyebrow";
 export { FramesMark } from "./frames-mark";
+export { SkillMark } from "./skill-mark";
 export { IconBadge, iconBadgeVariants } from "./icon-badge";
 export type { IconBadgeProps } from "./icon-badge";
 export { IconButton } from "./icon-button";

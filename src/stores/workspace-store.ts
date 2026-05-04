@@ -2,11 +2,20 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { UIDataTypes, UIMessagePart, UITools } from "ai";
 
 import { MODEL_OPTIONS } from "@/lib/workspace/types";
 import type { ChatSessionDTO, SessionUsage } from "@/lib/workspace/types";
 import type { UploadedFile } from "@/lib/api/uploads";
 import type { TagMarker } from "@/lib/workspace/tag-markers";
+
+/**
+ * Rich message parts assembled by the global Composer and waiting to be
+ * picked up by the matching `ActiveSession`'s `useChat`. Mirrors the AI
+ * SDK's `UIMessagePart` shape so the consumer can hand it directly to
+ * `sendMessage({ parts })`.
+ */
+export type PendingComposerSubmission = UIMessagePart<UIDataTypes, UITools>[];
 
 export type CanvasTabKey = "files" | `design:${string}`;
 
@@ -45,7 +54,7 @@ function nextZoomDown(current: number): number {
   return MIN_ZOOM;
 }
 
-interface WorkspaceState {
+export interface WorkspaceState {
   // Active session per project
   activeSessionByProject: Record<string, string | undefined>;
   setActiveSession: (projectId: string, sessionId: string) => void;
@@ -61,12 +70,31 @@ interface WorkspaceState {
   ensureSessionTabsHydrated: (
     projectId: string,
     knownSessionIds: string[],
-    fallbackActiveSessionId?: string,
+    // Ids the caller knows are valid even though they're not in
+    // `knownSessionIds` yet — e.g. an optimistic temp tab, or a real session
+    // that was just created server-side but hasn't shown up in the next
+    // server-render of `sessions`. These are NEVER pruned and NEVER trigger
+    // an active-session rewrite. Without this, hydration races with optimistic
+    // creates and would jump the user to the first persisted tab.
+    protectedSessionIds?: ReadonlyArray<string>,
   ) => void;
 
-  // Selected model per project (defaults to first option)
-  selectedModelByProject: Record<string, { provider: string; modelId: string } | undefined>;
-  setSelectedModel: (projectId: string, modelId: string, provider: string) => void;
+  // Project-level sticky default: updated whenever the user changes the model
+  // in any session. New sessions in this project inherit this value.
+  defaultModelByProject: Record<string, { provider: string; modelId: string } | undefined>;
+
+  // Per-session model selection. Seeded from `defaultModelByProject` when a
+  // new session is opened (see `seedSessionModel`). Changing the model in one
+  // session never touches sibling sessions.
+  selectedModelBySession: Record<string, { provider: string; modelId: string } | undefined>;
+
+  // Set the model for a specific session. Also updates the project-level
+  // default so subsequent new sessions pick up the change.
+  setSelectedModel: (projectId: string, sessionId: string, modelId: string, provider: string) => void;
+
+  // Copy the current project default into a session the first time it's
+  // opened, so the session has an explicit model value from the start.
+  seedSessionModel: (projectId: string, sessionId: string) => void;
 
   // Open canvas tabs (the Files tab is implicit and always present)
   openTabsByProject: Record<string, string[]>;
@@ -81,6 +109,18 @@ interface WorkspaceState {
     position: "before" | "after",
   ) => void;
   setDesignTabOrder: (projectId: string, order: string[]) => void;
+  /**
+   * Reconcile persisted canvas-tab state against the server's current design
+   * list. Called on mount by CanvasTabStrip once the server-rendered `designs`
+   * prop is available:
+   *  - Prunes deleted design IDs from `openTabsByProject`.
+   *  - If `activeTabByProject` points to a design that no longer exists,
+   *    resets it to "files".
+   */
+  ensureCanvasTabsHydrated: (
+    projectId: string,
+    knownDesignIds: string[],
+  ) => void;
 
   // Canvas zoom — modeled after browser ctrl+/ctrl-/ctrl-0. `zoom` is the
   // visual scale (1 = 100%); the helpers step through the predefined
@@ -120,6 +160,24 @@ interface WorkspaceState {
   enqueueChatMessage: (sessionId: string, text: string) => void;
   consumeChatMessage: (sessionId: string) => void;
 
+  // Rich submissions assembled by the global Composer (text + attachments +
+  // tag markers as `parts`). The Composer enqueues here keyed by whichever
+  // session the user was looking at when they pressed Send; the matching
+  // session's `useChat` watches its own slot and consumes. This indirection
+  // is what lets the Composer live OUTSIDE any individual ActiveSession and
+  // still drive its sendMessage — and crucially, lets a submission survive
+  // a temp→real session id swap (the migration action below moves the
+  // queued parts along with drafts/attachments/etc).
+  pendingComposerSubmissionBySession: Record<
+    string,
+    PendingComposerSubmission | undefined
+  >;
+  enqueueComposerSubmission: (
+    sessionId: string,
+    parts: PendingComposerSubmission,
+  ) => void;
+  consumeComposerSubmission: (sessionId: string) => void;
+
   // Pending attachments (uploads + screenshots) to send with next message
   pendingAttachmentsBySession: Record<string, UploadedFile[]>;
   addPendingAttachment: (sessionId: string, file: UploadedFile) => void;
@@ -147,6 +205,13 @@ interface WorkspaceState {
   streamingSessionIds: Record<string, true>;
   setSessionStreaming: (sessionId: string, streaming: boolean) => void;
 
+  // Side-channel for "close tab while streaming" confirmation. The session
+  // tabs component writes a request here after the user confirms; the mounted
+  // ActiveSession reads it, calls stop(), then clears it. Runtime-only.
+  requestedStopBySession: Record<string, true>;
+  requestSessionStop: (sessionId: string) => void;
+  clearSessionStop: (sessionId: string) => void;
+
   // Cumulative usage stats for the chatbox indicator (tokens used, summaries,
   // and dollar cost). Hydrated from the server on mount via
   // `hydrateSessionUsage`, then patched live as each turn finishes via the
@@ -156,6 +221,42 @@ interface WorkspaceState {
   sessionUsageById: Record<string, SessionUsage>;
   hydrateSessionUsage: (sessions: ChatSessionDTO[]) => void;
   setSessionUsage: (sessionId: string, usage: SessionUsage) => void;
+
+  // Message-index positions in each session where rolling summarization fired.
+  // Keyed by sessionId; each value is a sorted list of 0-based message indices
+  // (the last message index present when the summarization completed).
+  // Runtime-only — not persisted; historical summarizations (before this
+  // page load) are surfaced via summarizedCount in the popover instead.
+  summarizationMarkersById: Record<string, number[]>;
+  addSummarizationMarker: (sessionId: string, messageIndex: number) => void;
+
+  // Self-critique mode toggle per session. When on, the agent screenshots its
+  // own design after each implementation pass, critiques it against the user
+  // request and design taste, and revises (capped at 3 rounds). Off by
+  // default — the toggle lives in the composer toolbar. Persisted so it
+  // survives reload, but scoped per-session so flipping it on for one chat
+  // doesn't leak into a sibling.
+  selfCritiqueBySession: Record<string, boolean>;
+  setSelfCritique: (sessionId: string, enabled: boolean) => void;
+
+  /**
+   * Runtime-only flag — true once the Zustand persist middleware has finished
+   * reading from localStorage. Until this flips, any value read from the store
+   * may be the SSR / JS-initialisation default, not the user's last persisted
+   * state. Never persisted itself (it is always false on a fresh page load and
+   * only set to true inside `onRehydrateStorage`).
+   */
+  _hasHydrated: boolean;
+  _setHasHydrated: (v: boolean) => void;
+
+  // Atomically reassign every per-session record from `fromId` to `toId`.
+  // Called when an optimistic temp session id is swapped for the real
+  // server-assigned id mid-create, so anything the user already typed,
+  // attached, queued, or toggled on the temp tab transfers seamlessly to
+  // the real session. Without this, the global Composer (bound to the
+  // active session id) would appear to "blank out" the moment handleNew
+  // flips the active id from temp to real.
+  migrateSessionState: (fromId: string, toId: string) => void;
 }
 
 const DEFAULT_MODEL = MODEL_OPTIONS[0];
@@ -229,39 +330,41 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             [projectId]: order,
           },
         })),
-      ensureSessionTabsHydrated: (projectId, knownSessionIds, fallback) =>
+      ensureSessionTabsHydrated: (projectId, knownSessionIds, protectedSessionIds) =>
         set((s) => {
           const known = new Set(knownSessionIds);
+          const protectedSet = new Set(protectedSessionIds ?? []);
+          // Treat protected ids as "valid" for hydration purposes — they're
+          // in-flight optimistic placeholders or freshly created sessions
+          // that the server-rendered `sessions` list hasn't caught up to yet.
+          const isValid = (id: string) => known.has(id) || protectedSet.has(id);
           const existing = s.openSessionsByProject[projectId];
           const activeId = s.activeSessionByProject[projectId];
-          // First visit (no persisted entry yet): open just the fallback (or
-          // the first known session) and make it active. On subsequent
-          // visits, only prune ids that no longer exist server-side so we
-          // don't surprise the user by re-opening tabs they explicitly
-          // closed.
+          // First visit (no persisted entry yet): leave open list empty so
+          // the zero-tab auto-open effect in SessionTabs fires handleNew()
+          // and creates a fresh session. This ensures the user always lands
+          // on a new blank chat rather than an arbitrary existing session
+          // when there is no localStorage state for this project.
+          // On subsequent visits, only prune ids that no longer exist
+          // server-side so we don't surprise the user by re-opening tabs
+          // they explicitly closed.
           if (!existing) {
-            const seedId =
-              fallback && known.has(fallback)
-                ? fallback
-                : (knownSessionIds[0] ?? undefined);
-            const seed = seedId ? [seedId] : [];
             return {
               openSessionsByProject: {
                 ...s.openSessionsByProject,
-                [projectId]: seed,
-              },
-              activeSessionByProject: {
-                ...s.activeSessionByProject,
-                [projectId]: seedId ?? activeId,
+                [projectId]: [],
               },
             };
           }
-          const pruned = existing.filter((id) => known.has(id));
+          const pruned = existing.filter(isValid);
           // Even if `existing` matches `pruned`, the persisted active session
           // may now be stale (deleted server-side). Drop it so chat-pane
           // doesn't try to fetch messages for a dead id.
+          //
+          // When the active session is gone, default to undefined ("new chat")
+          // rather than silently jumping the user to a different open tab.
           const activeNext =
-            activeId && known.has(activeId) ? activeId : pruned[0];
+            activeId && isValid(activeId) ? activeId : undefined;
           if (
             pruned.length === existing.length &&
             activeNext === activeId
@@ -280,14 +383,32 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           };
         }),
 
-      selectedModelByProject: {},
-      setSelectedModel: (projectId, modelId, provider) =>
+      defaultModelByProject: {},
+      selectedModelBySession: {},
+      setSelectedModel: (projectId, sessionId, modelId, provider) =>
         set((s) => ({
-          selectedModelByProject: {
-            ...s.selectedModelByProject,
+          defaultModelByProject: {
+            ...s.defaultModelByProject,
             [projectId]: { provider, modelId },
           },
+          selectedModelBySession: {
+            ...s.selectedModelBySession,
+            [sessionId]: { provider, modelId },
+          },
         })),
+      seedSessionModel: (projectId, sessionId) =>
+        set((s) => {
+          // Only seed once — don't overwrite an explicit selection.
+          if (s.selectedModelBySession[sessionId]) return {};
+          const def = s.defaultModelByProject[projectId];
+          if (!def) return {};
+          return {
+            selectedModelBySession: {
+              ...s.selectedModelBySession,
+              [sessionId]: def,
+            },
+          };
+        }),
 
       openTabsByProject: {},
       activeTabByProject: {},
@@ -338,6 +459,41 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((s) => ({
           openTabsByProject: { ...s.openTabsByProject, [projectId]: order },
         })),
+      ensureCanvasTabsHydrated: (projectId, knownDesignIds) =>
+        set((s) => {
+          const known = new Set(knownDesignIds);
+          const existingOpen = s.openTabsByProject[projectId] ?? [];
+          const existingActive: CanvasTabKey =
+            s.activeTabByProject[projectId] ?? "files";
+
+          const prunedOpen = existingOpen.filter((id) => known.has(id));
+
+          // Fall back to "files" if the persisted active design was deleted.
+          let activeNext: CanvasTabKey = existingActive;
+          if (existingActive !== "files") {
+            const designId = existingActive.replace(/^design:/, "");
+            if (!known.has(designId)) {
+              activeNext = "files";
+            }
+          }
+
+          if (
+            prunedOpen.length === existingOpen.length &&
+            activeNext === existingActive
+          ) {
+            return {};
+          }
+          return {
+            openTabsByProject: {
+              ...s.openTabsByProject,
+              [projectId]: prunedOpen,
+            },
+            activeTabByProject: {
+              ...s.activeTabByProject,
+              [projectId]: activeNext,
+            },
+          };
+        }),
 
       zoom: DEFAULT_ZOOM,
       setZoom: (zoom) =>
@@ -377,6 +533,24 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const next = { ...s.pendingChatMessageBySession };
           delete next[sessionId];
           return { pendingChatMessageBySession: next };
+        }),
+
+      pendingComposerSubmissionBySession: {},
+      enqueueComposerSubmission: (sessionId, parts) =>
+        set((s) => ({
+          pendingComposerSubmissionBySession: {
+            ...s.pendingComposerSubmissionBySession,
+            [sessionId]: parts,
+          },
+        })),
+      consumeComposerSubmission: (sessionId) =>
+        set((s) => {
+          if (s.pendingComposerSubmissionBySession[sessionId] === undefined) {
+            return {};
+          }
+          const next = { ...s.pendingComposerSubmissionBySession };
+          delete next[sessionId];
+          return { pendingComposerSubmissionBySession: next };
         }),
 
       pendingAttachmentsBySession: {},
@@ -454,6 +628,19 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           return { streamingSessionIds: next };
         }),
 
+      requestedStopBySession: {},
+      requestSessionStop: (sessionId) =>
+        set((s) => ({
+          requestedStopBySession: { ...s.requestedStopBySession, [sessionId]: true },
+        })),
+      clearSessionStop: (sessionId) =>
+        set((s) => {
+          if (!s.requestedStopBySession[sessionId]) return {};
+          const next = { ...s.requestedStopBySession };
+          delete next[sessionId];
+          return { requestedStopBySession: next };
+        }),
+
       sessionUsageById: {},
       hydrateSessionUsage: (sessions) =>
         set((s) => {
@@ -470,20 +657,94 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((s) => ({
           sessionUsageById: { ...s.sessionUsageById, [sessionId]: usage },
         })),
+
+      summarizationMarkersById: {},
+      addSummarizationMarker: (sessionId, messageIndex) =>
+        set((s) => {
+          const prev = s.summarizationMarkersById[sessionId] ?? [];
+          // Deduplicate — don't add the same index twice (e.g. on stream retry).
+          if (prev.includes(messageIndex)) return {};
+          return {
+            summarizationMarkersById: {
+              ...s.summarizationMarkersById,
+              [sessionId]: [...prev, messageIndex],
+            },
+          };
+        }),
+
+      selfCritiqueBySession: {},
+      setSelfCritique: (sessionId, enabled) =>
+        set((s) => ({
+          selfCritiqueBySession: {
+            ...s.selfCritiqueBySession,
+            [sessionId]: enabled,
+          },
+        })),
+
+      _hasHydrated: false,
+      _setHasHydrated: (v) => set({ _hasHydrated: v }),
+
+      migrateSessionState: (fromId, toId) =>
+        set((s) => {
+          if (fromId === toId) return {};
+          // Pure helper: copy `fromId` → `toId` and drop `fromId`. Returns
+          // the same reference if the source key is absent so we don't churn
+          // identities for unrelated maps.
+          const move = <T,>(map: Record<string, T>): Record<string, T> => {
+            if (!(fromId in map)) return map;
+            const next = { ...map };
+            next[toId] = next[fromId]!;
+            delete next[fromId];
+            return next;
+          };
+          return {
+            draftBySession: move(s.draftBySession),
+            pendingChatMessageBySession: move(s.pendingChatMessageBySession),
+            pendingComposerSubmissionBySession: move(
+              s.pendingComposerSubmissionBySession,
+            ),
+            pendingAttachmentsBySession: move(s.pendingAttachmentsBySession),
+            pendingTagsBySession: move(s.pendingTagsBySession),
+            sessionTitleOverrides: move(s.sessionTitleOverrides),
+            streamingSessionIds: move(s.streamingSessionIds),
+            requestedStopBySession: move(s.requestedStopBySession),
+            sessionUsageById: move(s.sessionUsageById),
+            summarizationMarkersById: move(s.summarizationMarkersById),
+            selfCritiqueBySession: move(s.selfCritiqueBySession),
+            selectedModelBySession: move(s.selectedModelBySession),
+          };
+        }),
     }),
     {
       name: "claude-design:workspace",
+      onRehydrateStorage: () => (state) => {
+        state?._setHasHydrated(true);
+      },
       partialize: (s) => ({
         activeSessionByProject: s.activeSessionByProject,
         openSessionsByProject: s.openSessionsByProject,
-        selectedModelByProject: s.selectedModelByProject,
+        defaultModelByProject: s.defaultModelByProject,
+        selectedModelBySession: s.selectedModelBySession,
         openTabsByProject: s.openTabsByProject,
         activeTabByProject: s.activeTabByProject,
         chatPanelSize: s.chatPanelSize,
         zoom: s.zoom,
+        selfCritiqueBySession: s.selfCritiqueBySession,
       }),
     },
   ),
 );
 
 export const DEFAULT_MODEL_OPTION = DEFAULT_MODEL;
+
+/**
+ * Resolves the effective model for a session.
+ * Priority: session-specific selection > project default > global default.
+ */
+export function resolveSessionModel(
+  sessionId: string,
+  projectId: string,
+  store: Pick<WorkspaceState, "selectedModelBySession" | "defaultModelByProject">,
+) {
+  return store.selectedModelBySession[sessionId] ?? store.defaultModelByProject[projectId];
+}

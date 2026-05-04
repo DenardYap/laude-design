@@ -1,6 +1,7 @@
 "use client";
 
-import * as React from "react";
+import { useEffect } from 'react';
+import type { RefObject } from 'react';
 
 import { useWorkspaceStore } from "@/stores/workspace-store";
 
@@ -15,12 +16,12 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
  * 500% on a single gesture.
  */
 export function useCanvasWheelZoom(
-  viewportRef: React.RefObject<HTMLDivElement | null>,
+  viewportRef: RefObject<HTMLDivElement | null>,
 ) {
   const zoomIn = useWorkspaceStore((s) => s.zoomIn);
   const zoomOut = useWorkspaceStore((s) => s.zoomOut);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
 

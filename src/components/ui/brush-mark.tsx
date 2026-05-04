@@ -1,5 +1,4 @@
-import * as React from "react";
-
+import type { SVGProps } from 'react';
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,7 +10,7 @@ import { cn } from "@/lib/utils";
 export function BrushMark({
   className,
   ...props
-}: React.SVGProps<SVGSVGElement>) {
+}: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 512 512"
