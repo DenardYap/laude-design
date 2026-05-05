@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
+import Link from "next/link";
 
 import {
   Avatar,
@@ -40,6 +41,13 @@ export function UserMenu({ user, size = "md" }: UserMenuProps) {
           <div className="text-sm font-medium text-ink">{user.name}</div>
           <div className="truncate text-xs text-ink-muted">{user.email}</div>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <Settings className="size-4" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <form action={signOutAction}>
           <DropdownMenuItem asChild>

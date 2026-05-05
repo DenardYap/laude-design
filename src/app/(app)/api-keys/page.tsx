@@ -48,7 +48,16 @@ export default function ApiKeysPage() {
         <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-success" />
         <span>
           Keys are stored in this browser and sent to our server only when processing your AI
-          requests — we never write them to our database.{" "}
+          requests — we never write them to our database (
+          <a
+            href="https://github.com/DenardYap/laude-design/blob/main/prisma/schema.prisma"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-ink"
+          >
+            see source
+          </a>
+          ).{" "}
           <strong>Use a dedicated key per provider</strong> and revoke it on the provider&apos;s
           dashboard if it may be compromised.
         </span>

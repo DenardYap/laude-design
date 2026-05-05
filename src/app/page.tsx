@@ -113,7 +113,7 @@ const features = [
     icon: KeyRound,
     title: "BYOK (Bring Your Own Key)",
     description:
-      "Keys pass through our server only to reach your AI provider — we never write them to our database. Use a dedicated key per provider and revoke it from the provider&apos;s dashboard at any time.",
+      "Keys pass through our server only to reach your AI provider — we never write them to our database. Use a dedicated key per provider and revoke it from the provider's dashboard at any time.",
   },
 ];
 

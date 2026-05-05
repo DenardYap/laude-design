@@ -4,7 +4,7 @@ import { LegalSection } from "../_components/legal-section";
 
 export const metadata = { title: "Privacy Policy · Laude Design" };
 
-const LAST_UPDATED = "May 2, 2026";
+const LAST_UPDATED = "May 4, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -137,10 +137,11 @@ export default function PrivacyPage() {
         <p>
           We keep your account and workspace content for as long as your
           account is active. When you delete a project, Skill, or API key, it
-          is removed from active systems immediately and purged from backups
-          within 30 days. When you delete your account, we delete your
-          workspace content within 30 days, except where we&rsquo;re required
-          to retain limited records for legal or security reasons.
+          is removed from our database immediately. When you delete your
+          account, all associated workspace content &mdash; projects, designs,
+          sessions, and Skills &mdash; is deleted immediately from our active
+          database. Residual copies that may exist in infrastructure-level
+          backups are purged within 30 days.
         </p>
       </LegalSection>
 
