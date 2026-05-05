@@ -1,4 +1,4 @@
-import type { WheelEvent } from "react";
+import type React from "react";
 
 export interface ImageViewportProps {
   url: string;
@@ -6,7 +6,7 @@ export interface ImageViewportProps {
   zoom: number;
   naturalHeight: number | null;
   onNaturalHeightLoad: (height: number) => void;
-  onWheel: (e: WheelEvent<HTMLDivElement>) => void;
+  viewportRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export interface ZoomToolbarProps {

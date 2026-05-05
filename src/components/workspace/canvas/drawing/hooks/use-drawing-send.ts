@@ -82,7 +82,7 @@ export function useDrawingSend(
         captureEl,
         iframe,
       });
-      const file = await dataUrlToFile(dataUrl, buildSketchName());
+      const file = dataUrlToFile(dataUrl, buildSketchName());
       const uploaded = await uploadAttachment(projectId, file);
       addAttachment(sessionId, { ...uploaded, kind: "sketch" });
       clearDrawing(projectId);
@@ -232,9 +232,15 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-async function dataUrlToFile(dataUrl: string, name: string): Promise<File> {
-  const blob = await (await fetch(dataUrl)).blob();
-  return new File([blob], name, { type: blob.type });
+function dataUrlToFile(dataUrl: string, name: string): File {
+  const [header, base64] = dataUrl.split(",");
+  const mime = header.match(/:(.*?);/)?.[1] ?? "image/png";
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new File([bytes], name, { type: mime });
 }
 
 function buildSketchName(): string {

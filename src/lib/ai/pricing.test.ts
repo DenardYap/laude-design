@@ -243,9 +243,9 @@ describe("calculateCost", () => {
 
     it("applies the cache-read discount when AI SDK reports cached tokens", () => {
       // 1M total input split as 600k fresh + 400k cached
-      // = 600k × $2.50/1M  + 400k × $1.25/1M  (cache-read discount)
-      // = $1.50           + $0.50
-      // = $2.00 input, plus 0 output
+      // = 600k × $2.50/1M  + 400k × $0.25/1M  (cache-read discount)
+      // = $1.50           + $0.10
+      // = $1.60 input, plus 0 output
       const cost = calculateCost(
         {
           inputTokens: 1_000_000,
@@ -257,7 +257,7 @@ describe("calculateCost", () => {
         },
         openaiPricing,
       );
-      expect(cost).toBeCloseTo(1.5 + 0.5, 6);
+      expect(cost).toBeCloseTo(1.5 + 0.1, 6);
     });
 
     it("a cached-heavy turn costs less than the same tokens billed flat", () => {
@@ -286,16 +286,16 @@ describe("calculateCost", () => {
   });
 
   describe("Gemini cache pricing (implicit caching, cacheRead only)", () => {
-    // Gemini 2.5+ auto-applies implicit caching for any sufficiently long
+    // Gemini 3+ auto-applies context caching for any sufficiently long
     // prefix and reports the discount via `cachedContentTokenCount`,
     // normalized into `cacheReadTokens` by the AI SDK.
     const geminiPricing = getModelPricing("GEMINI", "gemini-3.1-pro-preview")!;
 
     it("applies the implicit cache-read discount", () => {
       // 1M total input split as 700k fresh + 300k cached
-      // = 700k × $2/1M  + 300k × $0.50/1M
-      // = $1.40        + $0.15
-      // = $1.55 input
+      // = 700k × $2/1M  + 300k × $0.20/1M
+      // = $1.40        + $0.06
+      // = $1.46 input
       const cost = calculateCost(
         {
           inputTokens: 1_000_000,
@@ -305,7 +305,7 @@ describe("calculateCost", () => {
         },
         geminiPricing,
       );
-      expect(cost).toBeCloseTo(1.4 + 0.15, 6);
+      expect(cost).toBeCloseTo(1.4 + 0.06, 6);
     });
 
     it("falls back to flat rate when no caching is reported", () => {

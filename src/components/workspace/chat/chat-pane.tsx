@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 
-import { useWorkspaceStore } from "@/stores/workspace-store";
+import { EMPTY_TAB_LIST, useWorkspaceStore } from "@/stores/workspace-store";
 import type { ChatPaneProps } from "@/components/workspace/chat/types/messages";
 import { TEMP_SESSION_PREFIX } from "@/components/workspace/chat/session-tabs";
 import {
@@ -34,12 +34,12 @@ const COMPOSER_NO_SESSION_KEY = "__chatbox_no_session__";
  * unmounts when the active session id swings (temp→real handoff, tab swap,
  * SSR-prop lag, useQuery isPending, etc).
  */
-export function ChatPane({ projectId, apiKeys, hasSessions = false }: ChatPaneProps) {
+export function ChatPane({ projectId, hasSessions = false }: ChatPaneProps) {
   const activeSessionId = useWorkspaceStore(
     (s) => s.activeSessionByProject[projectId],
   );
   const openSessionIds = useWorkspaceStore(
-    (s) => s.openSessionsByProject[projectId] ?? [],
+    (s) => s.openSessionsByProject[projectId] ?? EMPTY_TAB_LIST,
   );
   const seedSessionModel = useWorkspaceStore((s) => s.seedSessionModel);
   const addAttachment = useWorkspaceStore((s) => s.addPendingAttachment);
@@ -132,7 +132,6 @@ export function ChatPane({ projectId, apiKeys, hasSessions = false }: ChatPanePr
         ref={composerRef}
         projectId={projectId}
         sessionId={composerSessionId}
-        apiKeys={apiKeys}
         onSend={handleSend}
         uploadFiles={handleValidFiles}
         uploadPending={upload.isPending}

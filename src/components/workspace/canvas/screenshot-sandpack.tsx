@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { RefObject } from "react";
 
 import {
   SandpackLayout,
   SandpackPreview,
   SandpackProvider,
+  useSandpack,
 } from "@codesandbox/sandpack-react";
 
 import type { DesignDTO } from "@/lib/workspace/types";
@@ -59,7 +60,7 @@ const SANDPACK_OPTIONS = {
  *   - Mounted off-screen via inline styles in the parent host — see
  *     `screenshot-host.tsx` for the visibility argument.
  */
-export function ScreenshotSandpack({ design, hostRef }: ScreenshotSandpackProps) {
+export function ScreenshotSandpack({ design, hostRef, onReady }: ScreenshotSandpackProps) {
   // Memoize against design.id so file-content edits flow through the file
   // mirror effect rather than remounting Sandpack. Same rule as the visible
   // renderer.
@@ -103,8 +104,37 @@ export function ScreenshotSandpack({ design, hostRef }: ScreenshotSandpackProps)
           />
         </SandpackLayout>
         <FileMirror designFiles={design.files} />
+        <ReadinessMonitor onReady={onReady} />
       </SandpackProvider>
     </div>
   );
+}
+
+/**
+ * Lives inside `SandpackProvider` so it can call `listen`. Fires `onReady`
+ * when Sandpack's bundler emits `"done"` — the same signal `DesignerInternals`
+ * uses to hide the loading overlay. At this point the compiled bundle is live
+ * in the preview iframe and the screenshot script has installed, so the host
+ * can attempt `requestIframeScreenshot` without relying on a blind timeout.
+ */
+function ReadinessMonitor({ onReady }: { onReady?: () => void }) {
+  const { listen } = useSandpack();
+
+  const onReadyRef = useRef(onReady);
+  useLayoutEffect(() => {
+    onReadyRef.current = onReady;
+  });
+
+  useEffect(() => {
+    return listen((message) => {
+      if (message.type === "done") {
+        onReadyRef.current?.();
+      }
+    });
+    // `listen` is stable inside the Sandpack context; omitted intentionally.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
 }
 

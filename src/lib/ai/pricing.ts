@@ -32,10 +32,10 @@ export interface ModelPricing {
 //   Anthropic: https://www.anthropic.com/pricing#api
 //     cache write = 1.25× the base input rate
 //     cache read  = 0.10× the base input rate
-//   OpenAI:    https://openai.com/api/pricing/
-//     cached input ≈ 0.50× the base input rate (GPT-4o family + GPT-5)
-//   Google:    https://ai.google.dev/pricing
-//     implicit cached input ≈ 0.25× the base input rate (Gemini 2.5+)
+  //   OpenAI:    https://openai.com/api/pricing/
+  //     cached input ≈ 0.10× the base input rate (GPT-5 generation)
+  //   Google:    https://ai.google.dev/pricing
+  //     context caching ≈ 0.10× the base input rate (Gemini 3+)
 const MODEL_PRICING: Record<ModelProvider, Record<string, ModelPricing>> = {
   CLAUDE: {
     "claude-sonnet-4-6": {
@@ -61,34 +61,34 @@ const MODEL_PRICING: Record<ModelProvider, Record<string, ModelPricing>> = {
     "gpt-5.5": {
       inputUsdPer1M: 5,
       outputUsdPer1M: 30,
-      cacheReadUsdPer1M: 2.5,
+      cacheReadUsdPer1M: 0.5,
     },
     "gpt-5.4": {
       inputUsdPer1M: 2.5,
       outputUsdPer1M: 15,
-      cacheReadUsdPer1M: 1.25,
+      cacheReadUsdPer1M: 0.25,
     },
     "gpt-5.4-mini": {
       inputUsdPer1M: 0.75,
       outputUsdPer1M: 4.5,
-      cacheReadUsdPer1M: 0.375,
+      cacheReadUsdPer1M: 0.075,
     },
   },
   GEMINI: {
     "gemini-3.1-pro-preview": {
       inputUsdPer1M: 2,
       outputUsdPer1M: 12,
-      cacheReadUsdPer1M: 0.5,
+      cacheReadUsdPer1M: 0.2,
     },
     "gemini-3-flash-preview": {
       inputUsdPer1M: 0.5,
       outputUsdPer1M: 3,
-      cacheReadUsdPer1M: 0.125,
+      cacheReadUsdPer1M: 0.05,
     },
     "gemini-3.1-flash-lite-preview": {
       inputUsdPer1M: 0.25,
       outputUsdPer1M: 1.5,
-      cacheReadUsdPer1M: 0.0625,
+      cacheReadUsdPer1M: 0.025,
     },
   },
 };

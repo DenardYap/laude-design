@@ -19,15 +19,12 @@ export interface ProviderConfig {
 
 export interface ExistingKey {
   lastFour: string;
-  updatedAt: Date | string;
 }
 
 export interface ApiKeyRowProps {
   config: ProviderConfig;
-  existing?: ExistingKey;
 }
 
 export interface ApiKeysListProps {
   providers: ProviderConfig[];
-  existingByProvider: Record<AiProvider, ExistingKey | undefined>;
 }

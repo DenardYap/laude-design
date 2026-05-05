@@ -91,7 +91,6 @@ function ComposerAttachmentsStrip({ sessionId }: { sessionId: string }) {
 function ComposerToolbar({
   projectId,
   sessionId,
-  apiKeys,
   uploadPending,
   fileInputRef,
   onSend,
@@ -118,7 +117,6 @@ function ComposerToolbar({
         <ModelPicker
           projectId={projectId}
           sessionId={sessionId}
-          apiKeys={apiKeys}
         />
         <SelfCritiqueToggle sessionId={sessionId} disabled={streaming} />
         <IconButton
@@ -162,7 +160,7 @@ function ComposerToolbar({
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(
   function Composer(
-    { projectId, sessionId, apiKeys, onSend, uploadFiles, uploadPending },
+    { projectId, sessionId, onSend, uploadFiles, uploadPending },
     ref,
   ) {
     const draft = useWorkspaceStore((s) => s.draftBySession[sessionId] ?? "");
@@ -261,7 +259,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           <ComposerToolbar
             projectId={projectId}
             sessionId={sessionId}
-            apiKeys={apiKeys}
             uploadPending={uploadPending}
             fileInputRef={fileInputRef}
             onSend={handleSend}

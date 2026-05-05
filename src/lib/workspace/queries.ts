@@ -8,7 +8,7 @@ export async function getWorkspaceData(projectId: string, userId: string) {
   });
   if (!project) return null;
 
-  const [sessions, folders, designs, apiKeys] = await Promise.all([
+  const [sessions, folders, designs] = await Promise.all([
     db.chatSession.findMany({
       where: { projectId },
       orderBy: { createdAt: "asc" },
@@ -40,10 +40,6 @@ export async function getWorkspaceData(projectId: string, userId: string) {
           select: { path: true, content: true },
         },
       },
-    }),
-    db.apiKey.findMany({
-      where: { userId },
-      select: { provider: true, lastFour: true },
     }),
   ]);
 
@@ -90,7 +86,6 @@ export async function getWorkspaceData(projectId: string, userId: string) {
       files: d.files,
       updatedAt: d.updatedAt.toISOString(),
     })),
-    apiKeys: apiKeys.map((k) => ({ provider: k.provider, lastFour: k.lastFour })),
   };
 }
 

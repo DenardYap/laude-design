@@ -1,4 +1,5 @@
 import { generateText, type ModelMessage } from "ai";
+import type { AiProvider } from "@/lib/validators";
 
 import { resolveInternalModel } from "@/lib/ai/internal-models";
 
@@ -21,20 +22,22 @@ const MAX_ASSISTANT_CHARS = 400;
 const MAX_TITLE_LEN = 60;
 
 /**
- * Returns a 3–5 word title summarizing a conversation, or `null` if no API
- * key is configured for any provider or the generation fails. Errors are
- * swallowed so a failed title never blocks the chat response.
+ * Returns a 3–5 word title summarizing a conversation, or `null` if the
+ * active provider key is absent or the generation fails. Errors are swallowed
+ * so a failed title never blocks the chat response.
  */
 export async function generateSessionTitle({
-  userId,
+  activeProvider,
+  activeApiKey,
   firstUserMessage,
   firstAssistantMessage,
 }: {
-  userId: string;
+  activeProvider: AiProvider;
+  activeApiKey: string;
   firstUserMessage: string;
   firstAssistantMessage: string;
 }): Promise<string | null> {
-  const internal = await resolveInternalModel(userId);
+  const internal = resolveInternalModel({ activeProvider, activeApiKey });
   if (!internal) return null;
 
   const messages: ModelMessage[] = [

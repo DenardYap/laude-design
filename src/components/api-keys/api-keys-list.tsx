@@ -8,7 +8,7 @@ import { useScopeQuery } from "@/stores/filters-store";
 import { ApiKeyRow } from "./api-key-row";
 import type { ApiKeysListProps } from "@/components/api-keys/types/api-keys";
 
-export function ApiKeysList({ providers, existingByProvider }: ApiKeysListProps) {
+export function ApiKeysList({ providers }: ApiKeysListProps) {
   const { query, setQuery } = useScopeQuery("api-keys");
   const normalized = query.trim().toLowerCase();
 
@@ -41,7 +41,6 @@ export function ApiKeysList({ providers, existingByProvider }: ApiKeysListProps)
             <ApiKeyRow
               key={config.provider}
               config={config}
-              existing={existingByProvider[config.provider] ?? undefined}
             />
           ))}
         </ul>

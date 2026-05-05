@@ -69,46 +69,41 @@ const SCREENSHOT_SCRIPT = `
     var bg = (window.getComputedStyle(document.body).backgroundColor || '').trim();
     if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') bg = '#ffffff';
 
-    // Default capture options match the original behaviour (viewport-sized,
-    // honours #root height:100%). Full-page mode swaps these out for explicit
-    // width/height that span the entire scroll extent, plus a style override
-    // so the cloned tree expands to full height instead of staying clipped at
-    // the viewport.
+    // Always capture the full scroll extent of the document. This ensures that
+    // crop coordinates (which are viewport-relative) can be correctly mapped
+    // to the captured image even when the page is scrolled — a viewport-only
+    // capture would miss content below the first screen and produce incorrect
+    // crop offsets for anything the user has scrolled to.
     var captureOpts = { cacheBust: true, pixelRatio: pixelRatio, backgroundColor: bg };
-    if (fullPage) {
-      var docEl = document.documentElement;
-      var body = document.body;
-      var fullWidth = Math.max(
-        root.scrollWidth, root.offsetWidth,
-        docEl.scrollWidth, docEl.clientWidth,
-        body.scrollWidth, body.offsetWidth
-      ) || root.clientWidth || 1;
-      var fullHeight = Math.max(
-        root.scrollHeight, root.offsetHeight,
-        docEl.scrollHeight, docEl.clientHeight,
-        body.scrollHeight, body.offsetHeight
-      ) || root.clientHeight || 1;
-      // Clamp pixelRatio so width × pr (or height × pr) never exceeds the
-      // provider-safe ceiling. Allows arbitrarily tall designs at the cost
-      // of slightly fuzzier text — way better than truncating the page.
-      var longestCss = Math.max(fullWidth, fullHeight);
-      var maxRatio = MAX_LONGEST_EDGE_PX / Math.max(1, longestCss);
-      captureOpts.pixelRatio = Math.min(pixelRatio || 2, maxRatio);
-      captureOpts.width = fullWidth;
-      captureOpts.height = fullHeight;
-      captureOpts.style = {
-        height: fullHeight + 'px',
-        maxHeight: 'none',
-        overflow: 'visible',
-      };
-    }
+    var docEl = document.documentElement;
+    var body = document.body;
+    var fullWidth = Math.max(
+      root.scrollWidth, root.offsetWidth,
+      docEl.scrollWidth, docEl.clientWidth,
+      body.scrollWidth, body.offsetWidth
+    ) || root.clientWidth || 1;
+    var fullHeight = Math.max(
+      root.scrollHeight, root.offsetHeight,
+      docEl.scrollHeight, docEl.clientHeight,
+      body.scrollHeight, body.offsetHeight
+    ) || root.clientHeight || 1;
+    // Clamp pixelRatio so width × pr (or height × pr) never exceeds the
+    // provider-safe ceiling. Allows arbitrarily tall designs at the cost
+    // of slightly fuzzier text — way better than truncating the page.
+    var longestCss = Math.max(fullWidth, fullHeight);
+    var maxRatio = MAX_LONGEST_EDGE_PX / Math.max(1, longestCss);
+    captureOpts.pixelRatio = Math.min(pixelRatio || 2, maxRatio);
+    captureOpts.width = fullWidth;
+    captureOpts.height = fullHeight;
+    captureOpts.style = {
+      height: fullHeight + 'px',
+      maxHeight: 'none',
+      overflow: 'visible',
+    };
 
     window.htmlToImage
       .toPng(root, captureOpts)
       .then(function (dataUrl) {
-        // Full-page captures cover the entire document; the crop region is
-        // expressed in viewport CSS pixels so the math wouldn't line up.
-        // Treat fullPage as authoritative and return the uncropped PNG.
         if (!crop || fullPage) {
           delete inProgress[requestId];
           reply(requestId, { type: 'design-screenshot:result', dataUrl: dataUrl });
@@ -116,13 +111,16 @@ const SCREENSHOT_SCRIPT = `
         }
         var img = new Image();
         img.onload = function () {
-          var rootRect = root.getBoundingClientRect();
-          var scaleX = img.naturalWidth / Math.max(1, rootRect.width);
-          var scaleY = img.naturalHeight / Math.max(1, rootRect.height);
-          var rootLocalX = (crop.x + (window.scrollX || 0)) - rootRect.left;
-          var rootLocalY = (crop.y + (window.scrollY || 0)) - rootRect.top;
-          var sx = Math.max(0, rootLocalX * scaleX);
-          var sy = Math.max(0, rootLocalY * scaleY);
+          // Image covers the full document. Scale from CSS pixels to image pixels.
+          var scaleX = img.naturalWidth / Math.max(1, fullWidth);
+          var scaleY = img.naturalHeight / Math.max(1, fullHeight);
+          // crop.x/y are viewport-relative (iframe CSS px from the visible top-left).
+          // Add the current scroll offset to convert to document-absolute coordinates
+          // so the crop lands on the right part of the full-page image.
+          var docX = crop.x + (window.scrollX || 0);
+          var docY = crop.y + (window.scrollY || 0);
+          var sx = Math.max(0, docX * scaleX);
+          var sy = Math.max(0, docY * scaleY);
           var sw = Math.min(img.naturalWidth - sx, Math.max(0, crop.width) * scaleX);
           var sh = Math.min(img.naturalHeight - sy, Math.max(0, crop.height) * scaleY);
           if (sw < 4 || sh < 4) {

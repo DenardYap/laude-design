@@ -33,13 +33,18 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
   const designIds = useMemo(() => designs.map((d) => d.id), [designs]);
 
   // Reconcile persisted canvas-tab state against the current server-rendered
-  // design list. Runs whenever the active tab changes (including the Zustand
-  // persist rehydration flush that happens after mount) so a stale design ID
-  // is always caught regardless of whether the store had hydrated by the time
-  // the initial mount effect fired.
+  // design list. Runs whenever the server data changes so any stale design IDs
+  // (from deleted designs or a stale localStorage entry) are pruned.
+  //
+  // NOTE: `activeTab` is intentionally NOT in the dep array. Including it
+  // caused a race condition: when the AI creates a design, `openDesignTab` sets
+  // `activeTab = "design:{newId}"` before `router.refresh()` delivers the new
+  // design in `designIds`. That intermediate render would see `newId` absent
+  // from the server list and immediately reset the active tab back to "files".
   useEffect(() => {
     ensureCanvasHydrated(projectId, designIds);
-  }, [projectId, designIds, ensureCanvasHydrated, activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, designIds, ensureCanvasHydrated]);
 
   // Mutable drag state — kept in refs so mousemove handlers are never stale
   const orderRef = useRef<string[]>([...openTabs]);

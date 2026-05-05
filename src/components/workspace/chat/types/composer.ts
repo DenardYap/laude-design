@@ -1,13 +1,11 @@
 import type { RefObject } from "react";
 import type { UIMessagePart, UIDataTypes, UITools } from "ai";
-import type { ApiKeySummary } from "@/lib/workspace/types";
 
 export type ComposerSendParts = UIMessagePart<UIDataTypes, UITools>[];
 
 export interface ComposerProps {
   projectId: string;
   sessionId: string;
-  apiKeys: ApiKeySummary[];
   onSend: (parts: ComposerSendParts) => void;
   /** Upload handler provided by the parent panel. */
   uploadFiles: (files: File[]) => void;
@@ -26,7 +24,6 @@ export interface ComposerHandle {
 export interface ComposerToolbarProps {
   projectId: string;
   sessionId: string;
-  apiKeys: ApiKeySummary[];
   uploadPending: boolean;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onSend: () => void;

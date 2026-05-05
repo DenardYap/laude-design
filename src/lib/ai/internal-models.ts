@@ -1,17 +1,15 @@
+// SECURITY: Never log the activeApiKey argument.
 import { match } from "ts-pattern";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { LanguageModel } from "ai";
-import type { AiProvider } from "@prisma/client";
-
-import { db } from "@/lib/db";
-import { decryptSecret } from "@/lib/crypto";
+import type { AiProvider } from "@/lib/validators";
 
 // "Internal" models are the small/cheap models we use for non-user-facing work
 // like session titling and rolling-summary generation. We never expose these
-// in the picker — they're chosen automatically based on which API keys the
-// user has configured, with a stable preference order.
+// in the picker — they're chosen automatically based on the active provider key
+// sent with the request.
 
 const INTERNAL_MODELS: Record<AiProvider, string> = {
   CLAUDE: "claude-haiku-4-5",
@@ -35,32 +33,28 @@ export interface InternalModel {
 
 /**
  * Resolves a small/cheap model for internal background tasks (titles,
- * summarization). Picks the first provider in `PROVIDER_PREFERENCE` that the
- * user has an API key for. Returns `null` if no key is configured for any
- * provider — callers must treat this as "skip the background task" rather
- * than crashing the main flow.
+ * summarization) using the active provider's key sent with the request.
+ * Returns null if the active provider is not in the preference list or the key
+ * is empty — callers treat this as "skip the background task".
  */
-export async function resolveInternalModel(
-  userId: string,
-): Promise<InternalModel | null> {
-  const keys = await db.apiKey.findMany({
-    where: { userId },
-    select: { provider: true, ciphertext: true },
-  });
-  if (keys.length === 0) return null;
+export function resolveInternalModel({
+  activeProvider,
+  activeApiKey,
+}: {
+  activeProvider: AiProvider;
+  activeApiKey: string;
+}): InternalModel | null {
+  if (!activeApiKey) return null;
+  if (!PROVIDER_PREFERENCE.includes(activeProvider)) return null;
 
-  for (const provider of PROVIDER_PREFERENCE) {
-    const key = keys.find((k) => k.provider === provider);
-    if (!key) continue;
-    const secret = decryptSecret(key.ciphertext);
-    const modelId = INTERNAL_MODELS[provider];
-    const model = match(provider)
-      .with("CLAUDE", () => createAnthropic({ apiKey: secret })(modelId))
-      .with("OPENAI", () => createOpenAI({ apiKey: secret })(modelId))
-      .with("GEMINI", () => createGoogleGenerativeAI({ apiKey: secret })(modelId))
-      .exhaustive();
-    return { provider, modelId, model };
-  }
+  const modelId = INTERNAL_MODELS[activeProvider];
+  const model = match(activeProvider)
+    .with("CLAUDE", () => createAnthropic({ apiKey: activeApiKey })(modelId))
+    .with("OPENAI", () => createOpenAI({ apiKey: activeApiKey })(modelId))
+    .with("GEMINI", () =>
+      createGoogleGenerativeAI({ apiKey: activeApiKey })(modelId),
+    )
+    .exhaustive();
 
-  return null;
+  return { provider: activeProvider, modelId, model };
 }

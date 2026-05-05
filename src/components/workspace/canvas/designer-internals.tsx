@@ -116,6 +116,16 @@ export function DesignerInternals({
   // several elements in a row without re-entering it each time.
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
+      // Guard: only accept messages from a known Sandpack preview iframe.
+      // Without this check, AI-generated code running inside the iframe (or
+      // any other window with a reference to this page) could send arbitrary
+      // design-tagger:click payloads and inject text into the user's chat.
+      const iframes = document.querySelectorAll<HTMLIFrameElement>(".sp-preview-iframe");
+      const fromKnownIframe = Array.from(iframes).some(
+        (f) => f.contentWindow != null && ev.source === f.contentWindow,
+      );
+      if (!fromKnownIframe) return;
+
       match(ev.data as { type?: string; selector?: string; text?: string })
         .with({ type: "design-tagger:click" }, (d) => {
           if (!sessionId) return;

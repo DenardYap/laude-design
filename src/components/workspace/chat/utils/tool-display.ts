@@ -42,8 +42,8 @@ const TOOL_DISPLAY: Record<string, ToolDisplay> = {
     icon: FileText,
   },
   grepDesign: {
-    activeLabel: "Searching design",
-    pastLabel: "Searched design",
+    activeLabel: "Referencing existing design",
+    pastLabel: "Referenced existing design",
     icon: Search,
   },
   editDesign: {

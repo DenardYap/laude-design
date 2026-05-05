@@ -8,6 +8,11 @@ import {
   type UIMessage,
 } from "ai";
 
+// SECURITY: Never log the request body or the `apiKey` field anywhere in this
+// file. Errors are sanitized by `sanitizeErrorMessage` before they reach the
+// client to prevent leaking key material from provider stack traces.
+import { z } from "zod";
+
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { MissingApiKeyError, resolveModel } from "@/lib/ai/providers";
@@ -32,8 +37,24 @@ import {
   parseChatError,
 } from "@/components/workspace/chat/utils/chat-errors";
 
+// Redacts any API key material that might appear in provider error messages.
+const API_KEY_PATTERN =
+  /sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}/g;
+
+function sanitizeErrorMessage(message: string): string {
+  return message.replace(API_KEY_PATTERN, "[REDACTED]");
+}
+
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const ApiKeyBodySchema = z.object({
+  apiKey: z
+    .string()
+    .min(8, "Key looks too short")
+    .max(512, "Key looks too long")
+    .refine((v) => !/\s/.test(v), "API key cannot contain whitespace"),
+});
 
 interface Body {
   id: string;
@@ -44,6 +65,8 @@ interface Body {
   modelId: string;
   provider: "CLAUDE" | "OPENAI" | "GEMINI";
   activeDesignId: string | null;
+  // apiKey is intentionally absent — it travels as the x-provider-api-key
+  // request header, not in the body, to keep it out of body-level logs.
   // Optional — older clients may omit it; treat undefined as off.
   selfCritique?: boolean;
 }
@@ -149,6 +172,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   } = body;
   const selfCritique = body.selfCritique === true;
 
+  // Read the key from the custom header — kept out of the request body so it
+  // doesn't appear in body-level logs or structured request captures. A
+  // reverse proxy can strip `x-provider-api-key` before it ever reaches an
+  // APM tool with a single `proxy_hide_header` directive.
+  const rawApiKey = req.headers.get("x-provider-api-key") ?? "";
+
+  // Validate the API key before doing any expensive DB work.
+  const keyParse = ApiKeyBodySchema.safeParse({ apiKey: rawApiKey });
+  if (!keyParse.success) {
+    return NextResponse.json(
+      {
+        error: encodeChatError({
+          type: "api-key-missing",
+          provider,
+        }),
+      },
+      { status: 400 },
+    );
+  }
+  const { apiKey } = keyParse.data; // validated + trimmed value
+
   const chatSession = await db.chatSession.findFirst({
     where: { id: sessionId, projectId },
     select: {
@@ -184,7 +228,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   let model;
   try {
-    model = await resolveModel(userId, provider, modelId);
+    model = resolveModel(provider, modelId, apiKey);
   } catch (err) {
     if (err instanceof MissingApiKeyError) {
       return NextResponse.json(
@@ -303,7 +347,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         4,
     ) + TOOL_SCHEMA_OVERHEAD_TOKENS;
 
-  const summarizer = await resolveInternalModel(userId);
+  const summarizer = resolveInternalModel({
+    activeProvider: provider,
+    activeApiKey: apiKey,
+  });
   const rolling = await applyRollingSummary({
     messages: modelMessages,
     previousSummary: chatSession.rollingSummary,
@@ -374,9 +421,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const pricing = getModelPricing(provider, modelId);
 
   // Translate any error that flows out of the model stream into a tagged
-  // payload our client can render as a friendly banner.
+  // payload our client can render as a friendly banner. The message is
+  // sanitized first to strip any API key material that provider SDKs
+  // occasionally embed in stack traces or error bodies.
   const errorMessageForClient = (err: unknown): string => {
-    const message = err instanceof Error ? err.message : String(err);
+    const raw = err instanceof Error ? err.message : String(err);
+    const message = sanitizeErrorMessage(raw);
     console.error("[chat] stream error", message);
     const classified = parseChatError(message);
     const enriched =
@@ -411,7 +461,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         system: systemPrompt,
         messages: rolling.messages,
         tools,
-        stopWhen: stepCountIs(stepCeiling),
+        stopWhen: (state) =>
+          stepCountIs(stepCeiling)(state) ||
+          // Stop immediately after askClarifyingQuestions so the model
+          // can't continue calling planDesign / design tools in subsequent
+          // steps while the user is still being asked for input. The client
+          // already blocks auto-continuation on the frontend, but this guard
+          // prevents Gemini (and other models that ignore the tool's "end
+          // your turn" instruction) from forging ahead server-side.
+          (state.steps.at(-1)?.toolCalls.some(
+            (tc) => tc.toolName === "askClarifyingQuestions",
+          ) ?? false),
         // Propagate the client's abort (Stop button -> useChat.stop()) all the
         // way down so we stop billing tokens immediately instead of letting
         // the model finish generating after the user has already cancelled.
@@ -528,7 +588,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         const userText = extractText(lastUserMessage!.parts);
         if (!userText) return;
         const title = await generateSessionTitle({
-          userId,
+          activeProvider: provider,
+          activeApiKey: apiKey,
           firstUserMessage: userText,
           firstAssistantMessage: "",
         });

@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from 'react';
-import { match } from "ts-pattern";
 
 import { useWorkspaceStore } from "@/stores/workspace-store";
+import { requestIframeScreenshot } from "@/components/workspace/canvas/utils/iframe-screenshot";
 
 // The live canvas's Sandpack iframe already has the screenshot script
 // installed (see `buildSandpackFiles` → `SCREENSHOT_SCRIPT`). Rather than
@@ -18,13 +18,6 @@ export type CaptureStatus =
   | { status: "waiting" }
   | { status: "ready"; dataUrl: string }
   | { status: "error"; error: string };
-
-interface IframeMessage {
-  type?: string;
-  requestId?: string;
-  dataUrl?: string;
-  error?: string;
-}
 
 function findCanvasIframe(): HTMLIFrameElement | null {
   return document.querySelector<HTMLIFrameElement>(
@@ -67,14 +60,14 @@ export function useDesignScreenshotCapture(
   });
   const [nonce, setNonce] = useState(0);
 
-  // Capture a thumbnail. The in-iframe script queues the request if
-  // html-to-image is still loading and replies as soon as it's ready, so a
-  // single `captureWithWindow` round-trip covers both the "iframe is ready
-  // now" and "iframe is still booting" cases.
+  // Capture a thumbnail. `requestIframeScreenshot` handles the script-not-ready
+  // race by retrying on a 3-second interval and immediately resending when the
+  // iframe fires `design-screenshot:ready` (e.g. after Sandpack finishes
+  // recompiling on a design switch).
   //
-  // The only thing we retry client-side is "the iframe DOM isn't mounted
-  // yet" — which happens when the canvas tab just switched to this design
-  // and the Sandpack provider hasn't attached its iframe yet.
+  // The only thing we retry here is "the iframe DOM isn't mounted yet" —
+  // which happens when the canvas tab just switched to this design and the
+  // Sandpack provider hasn't attached its iframe yet.
   useEffect(() => {
     setStatus({ status: "waiting" });
     let cancelled = false;
@@ -85,8 +78,7 @@ export function useDesignScreenshotCapture(
     async function attempt() {
       if (cancelled) return;
       const iframe = findCanvasIframe();
-      const contentWindow = iframe?.contentWindow;
-      if (!contentWindow) {
+      if (!iframe?.contentWindow) {
         if (Date.now() > deadline) {
           setStatus({
             status: "error",
@@ -98,15 +90,16 @@ export function useDesignScreenshotCapture(
         retryHandle = window.setTimeout(attempt, 200);
         return;
       }
-      try {
-        const dataUrl = await captureWithWindow(contentWindow);
-        if (!cancelled) setStatus({ status: "ready", dataUrl });
-      } catch (err) {
-        if (cancelled) return;
-        setStatus({
-          status: "error",
-          error: err instanceof Error ? err.message : String(err),
-        });
+      // Use requestIframeScreenshot rather than a one-shot postMessage so that
+      // requests sent while Sandpack is still compiling (e.g. right after a
+      // design switch that remounts the SandpackProvider) are retried
+      // automatically once the screenshot script fires `design-screenshot:ready`.
+      const reply = await requestIframeScreenshot(iframe, { pixelRatio: 2 });
+      if (cancelled) return;
+      if (reply.error || !reply.dataUrl) {
+        setStatus({ status: "error", error: reply.error ?? "Capture failed" });
+      } else {
+        setStatus({ status: "ready", dataUrl: reply.dataUrl });
       }
     }
 
@@ -125,13 +118,16 @@ export function useDesignScreenshotCapture(
 
   const captureAsync = useCallback(async (): Promise<string> => {
     const iframe = findCanvasIframe();
-    const contentWindow = iframe?.contentWindow;
-    if (!contentWindow) {
+    if (!iframe?.contentWindow) {
       throw new Error(
         "Canvas isn't visible — open the design on the canvas first.",
       );
     }
-    return captureWithWindow(contentWindow);
+    const reply = await requestIframeScreenshot(iframe, { pixelRatio: 2 });
+    if (reply.error || !reply.dataUrl) {
+      throw new Error(reply.error ?? "Capture failed");
+    }
+    return reply.dataUrl;
   }, []);
 
   const recapture = useCallback(() => setNonce((n) => n + 1), []);
@@ -143,44 +139,3 @@ export function useDesignScreenshotCapture(
   } as const;
 }
 
-// Single round-trip with the in-iframe screenshot script. The script
-// queues requests that arrive before `html-to-image` finishes loading and
-// replies as soon as it's ready, so no retry logic is needed here.
-function captureWithWindow(contentWindow: Window): Promise<string> {
-  const requestId = `capture-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-  return new Promise<string>((resolve, reject) => {
-    const timeout = window.setTimeout(() => {
-      window.removeEventListener("message", onResponse);
-      reject(new Error("Capture timed out — try again in a second."));
-    }, 15_000);
-
-    function onResponse(ev: MessageEvent<IframeMessage>) {
-      if (ev.source !== contentWindow) return;
-      const data = ev.data;
-      if (!data || typeof data !== "object") return;
-      if (data.requestId !== requestId) return;
-
-      window.clearTimeout(timeout);
-      window.removeEventListener("message", onResponse);
-
-      match(data.type)
-        .with("design-screenshot:result", () => {
-          if (data.dataUrl) resolve(data.dataUrl);
-          else reject(new Error("Capture returned no image data"));
-        })
-        .with("design-screenshot:error", () => {
-          reject(new Error(data.error ?? "Capture failed"));
-        })
-        .otherwise(() => {
-          reject(new Error("Unexpected response from canvas"));
-        });
-    }
-
-    window.addEventListener("message", onResponse);
-    contentWindow.postMessage(
-      { type: "design-screenshot:request", requestId, pixelRatio: 2 },
-      "*",
-    );
-  });
-}

@@ -19,6 +19,13 @@ export interface ScreenshotAreaOverlayProps {
 export interface ScreenshotHostProps {
   projectId: string;
   designs: DesignDTO[];
+  /**
+   * When self-critique mode is active for the current session, the workspace
+   * passes the active design id here so the hidden Sandpack can be pre-warmed
+   * before the agent calls `screenshotDesign`. Set to `null` when self-critique
+   * is off — the host will tear down immediately if no capture is in flight.
+   */
+  preWarmDesignId?: string | null;
 }
 
 export interface ScreenshotSandpackProps {
@@ -33,4 +40,11 @@ export interface ScreenshotSandpackProps {
    * Forwarded ref so the host can DOM-query the live iframe element.
    */
   hostRef: RefObject<HTMLDivElement | null>;
+  /**
+   * Called when Sandpack's bundler fires its `"done"` event, meaning the
+   * compiled bundle is live in the preview iframe and the screenshot script
+   * has had a chance to install. The host uses this as the signal to attempt
+   * the screenshot instead of relying on a blind timeout.
+   */
+  onReady?: () => void;
 }

@@ -30,6 +30,7 @@ import {
   nextPendingFolderId,
   useOptimisticFilesStore,
 } from "@/stores/optimistic-files-store";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   createFolder,
   deleteFolder,
@@ -45,6 +46,7 @@ import type { FolderRowProps } from "@/components/workspace/canvas/files-tree/ty
 
 export function FolderRow({ projectId, folder, folders, designs, depth }: FolderRowProps) {
   const router = useRouter();
+  const openDesignTab = useWorkspaceStore((s) => s.openDesignTab);
   const [expanded, setExpanded] = useState(true);
   const [renaming, setRenaming] = useState(false);
   const renameTriggeredRef = useRef(false);
@@ -132,6 +134,7 @@ export function FolderRow({ projectId, folder, folders, designs, depth }: Folder
     },
     onSuccess: ({ tempId, design }) => {
       confirmPendingDesign(tempId, design);
+      openDesignTab(projectId, design.id);
       toast.success(`Design created in “${folder.name}”`);
       router.refresh();
     },

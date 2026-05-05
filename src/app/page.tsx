@@ -111,9 +111,9 @@ const features = [
   },
   {
     icon: KeyRound,
-    title: "Your keys, encrypted",
+    title: "BYOK (Bring Your Own Key)",
     description:
-      "API keys are AES-256-GCM encrypted at rest and never shared, logged, or displayed in full.",
+      "Keys pass through our server only to reach your AI provider — we never write them to our database. Use a dedicated key per provider and revoke it from the provider&apos;s dashboard at any time.",
   },
 ];
 

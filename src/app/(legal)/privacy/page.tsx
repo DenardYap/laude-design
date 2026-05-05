@@ -24,7 +24,7 @@ export default function PrivacyPage() {
         Design,&rdquo; &ldquo;we,&rdquo; &ldquo;us&rdquo;) collects, uses, and
         protects your information when you use the hosted version of the
         product. We try to collect as little as possible &mdash; only what we
-        need to keep your account, your projects, and your encrypted API keys
+        need to keep your account, your projects, and your API keys
         working.
       </p>
 
@@ -77,18 +77,19 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="3. API keys and encryption">
+      <LegalSection title="3. API keys">
         <p>
-          API keys you add are encrypted at rest using AES-256-GCM with a key
-          held outside the application database. Only the encrypted ciphertext
-          is persisted &mdash; the decrypted key exists in memory only for the
-          moment a request is made to the corresponding provider, and is never
-          logged, displayed in full, or returned to the browser after the
-          initial save.
+          API keys you add are stored in your browser&rsquo;s local storage.
+          When you send a message, your key is transmitted to our server as a
+          request header and used in memory to call your chosen AI provider.
+          Keys are never written to our database and are never displayed in
+          full.
         </p>
         <p>
-          You can rotate or delete a stored key at any time from the API Keys
-          section of the workspace.
+          You can remove a stored key at any time from the API Keys section of
+          the workspace. We recommend using a dedicated key per provider and
+          revoking it from the provider&rsquo;s dashboard if it may be
+          compromised.
         </p>
       </LegalSection>
 

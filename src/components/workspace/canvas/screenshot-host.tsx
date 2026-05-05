@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DesignDTO } from "@/lib/workspace/types";
 import {
@@ -35,15 +34,26 @@ import type { ScreenshotHostProps } from "@/components/workspace/canvas/types/sc
  */
 const STICKY_KEEPALIVE_MS = 60_000;
 
-const IFRAME_WAIT_TIMEOUT_MS = 8_000;
-const IFRAME_POLL_INTERVAL_MS = 150;
+/**
+ * How long to wait for Sandpack's bundler to fire its "done" event before
+ * attempting the screenshot anyway (best-effort fallback). This replaces the
+ * old `IFRAME_WAIT_TIMEOUT_MS` poll which only waited for an iframe DOM
+ * element — not for the compiled bundle to be live.
+ *
+ * Cold-start Sandpack compilation (npm resolution + bundling) typically takes
+ * 3–10 s; 35 s is a conservative ceiling that covers slow machines and
+ * network-cached-but-slow CDN hits. If compilation genuinely takes longer we
+ * still fall through and let `requestIframeScreenshot`'s retry loop handle it.
+ */
+const SANDPACK_READY_TIMEOUT_MS = 35_000;
 
 /**
  * Off-screen Sandpack mount point. Listens to the screenshot request store
  * and, whenever the producer (`captureDesignScreenshot`) enqueues a
  * request, swaps the hidden Sandpack to the requested design, waits for
- * its iframe to be hot, captures a full-page PNG, and resolves the
- * request — all without ever touching the visible canvas.
+ * Sandpack to signal compilation is done ("done" event via `ReadinessMonitor`),
+ * then captures a full-page PNG and resolves the request — all without ever
+ * touching the visible canvas.
  *
  * Sticky-mount: after each successful capture we keep the Sandpack alive
  * for `STICKY_KEEPALIVE_MS` so a multi-round revision sequence on the
@@ -61,13 +71,15 @@ const IFRAME_POLL_INTERVAL_MS = 150;
  * it out of accessibility / hit-testing trees so the user can never
  * interact with it by accident.
  */
-export function ScreenshotHost({ projectId, designs }: ScreenshotHostProps) {
+export function ScreenshotHost({
+  projectId,
+  designs,
+  preWarmDesignId = null,
+}: ScreenshotHostProps) {
   // Local React state mirrors the *currently mounted* design id. Lags the
-  // pending request when we're swapping designs — that gap is what the
-  // ready-poll below is for.
-  const [mountedDesignId, setMountedDesignId] = useState<string | null>(
-    null,
-  );
+  // pending request when we're swapping designs — that gap is handled by
+  // waiting for Sandpack's "done" event rather than polling the DOM.
+  const [mountedDesignId, setMountedDesignId] = useState<string | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
 
   // Tracks whether the in-flight request is currently being processed by
@@ -77,9 +89,17 @@ export function ScreenshotHost({ projectId, designs }: ScreenshotHostProps) {
 
   // Sticky teardown timer. Stored in a ref so we can cancel it the moment
   // a fresh request arrives.
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Tracks which mounted design IDs have already fired Sandpack's "done"
+  // event (i.e. compilation is complete and the preview is live). Cleared
+  // when the mounted design is swapped so a fresh mount always waits for
+  // its own compilation to finish before attempting a screenshot.
+  const readyDesignIds = useRef<Set<string>>(new Set());
+
+  // Resolve functions waiting for a specific design to complete compilation.
+  // Keyed by design ID; flushed when `handleSandpackReady` fires.
+  const pendingReadyCbs = useRef<Map<string, Set<() => void>>>(new Map());
 
   const designById = useMemo(() => {
     const m = new Map<string, DesignDTO>();
@@ -87,16 +107,75 @@ export function ScreenshotHost({ projectId, designs }: ScreenshotHostProps) {
     return m;
   }, [designs]);
 
-  const resolveRequest = useScreenshotRequestStore(
-    (s) => s.resolveRequest,
-  );
+  // Stable callback passed as `onReady` to ScreenshotSandpack. The
+  // ReadinessMonitor inside ScreenshotSandpack calls this when Sandpack's
+  // bundler fires `message.type === "done"`.
+  const handleSandpackReady = useCallback((designId: string) => {
+    readyDesignIds.current.add(designId);
+    const cbs = pendingReadyCbs.current.get(designId);
+    if (cbs) {
+      for (const cb of cbs) cb();
+      pendingReadyCbs.current.delete(designId);
+    }
+  }, []);
+
+  // When the mounted design is swapped, invalidate the previous design's
+  // readiness so a future remount of the same ID waits for fresh compilation.
+  const prevMountedDesignIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      prevMountedDesignIdRef.current &&
+      prevMountedDesignIdRef.current !== mountedDesignId
+    ) {
+      readyDesignIds.current.delete(prevMountedDesignIdRef.current);
+    }
+    prevMountedDesignIdRef.current = mountedDesignId;
+  }, [mountedDesignId]);
+
+  // Pre-warm / eager-teardown driven by the self-critique flag in the caller.
+  //
+  // When `preWarmDesignId` is non-null (self-critique is ON):
+  //   mount the hidden Sandpack for that design immediately so cold-start
+  //   compilation happens in the background while the agent is editing —
+  //   by the time `screenshotDesign` is called, the bundler is already warm
+  //   and `readyDesignIds` has been populated.
+  //
+  // When it becomes null again (self-critique turned OFF):
+  //   skip the sticky keepalive timer and unmount right away, unless a
+  //   capture is currently in flight (in which case we leave it alone and
+  //   let the normal scheduleTeardown path handle cleanup).
+  useEffect(() => {
+    if (preWarmDesignId) {
+      // Don't overwrite a different design that's actively being captured.
+      if (inFlightRequestId.current) return;
+      // Cancel any pending teardown and keep it alive.
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      if (!designById.has(preWarmDesignId)) return;
+      setMountedDesignId(preWarmDesignId);
+    } else {
+      // Self-critique turned off — tear down immediately when idle.
+      if (inFlightRequestId.current) return;
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      setMountedDesignId(null);
+    }
+  // `designById` covers design availability; `preWarmDesignId` is the only
+  // trigger we need — intentionally omit `mountedDesignId` to avoid
+  // fighting with the pending-request effect over what's mounted.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preWarmDesignId, designById]);
+
+  const resolveRequest = useScreenshotRequestStore((s) => s.resolveRequest);
 
   // Subscribe imperatively. We need the latest `pendingRequest` value but
   // a `useEffect` deps array on the request id is enough — the store guarantees
   // at most one pending request, so each "new request" appears exactly once.
-  const pendingRequest = useScreenshotRequestStore(
-    (s) => s.pendingRequest,
-  );
+  const pendingRequest = useScreenshotRequestStore((s) => s.pendingRequest);
 
   useEffect(() => {
     // Ignore cross-project requests — the host is mounted per-project, so a
@@ -132,19 +211,34 @@ export function ScreenshotHost({ projectId, designs }: ScreenshotHostProps) {
 
     let cancelled = false;
     const requestId = pendingRequest.id;
+    const designId = pendingRequest.designId;
 
     void (async () => {
       try {
-        // Wait for the iframe to actually exist + have a contentWindow we
-        // can postMessage to. Sandpack mounts asynchronously and the
-        // bundler can take a few hundred ms to a few seconds depending on
-        // cold/warm state.
-        const iframe = await waitForHostedIframe(
-          hostRef,
-          pendingRequest.designId,
-          IFRAME_WAIT_TIMEOUT_MS,
-        );
+        // If Sandpack has already compiled for this design (pre-warmed or a
+        // warm repeat capture), skip straight to the screenshot. Otherwise
+        // wait for the ReadinessMonitor inside ScreenshotSandpack to signal
+        // "done". This prevents the previous race where requestIframeScreenshot
+        // started its 25s countdown before the bundler had even finished.
+        if (!readyDesignIds.current.has(designId)) {
+          await waitForSandpackReady(
+            designId,
+            pendingReadyCbs.current,
+            SANDPACK_READY_TIMEOUT_MS,
+          );
+        }
         if (cancelled) return;
+
+        // Compilation is done (or we hit the fallback timeout). The iframe
+        // should now exist and have the screenshot script installed.
+        const iframe = findHostedIframe(hostRef, designId);
+        if (!iframe) {
+          resolveRequest(requestId, {
+            error:
+              "Hidden screenshot iframe not found after Sandpack compiled — the design may have an error.",
+          });
+          return;
+        }
 
         const reply = await requestIframeScreenshot(iframe, {
           pixelRatio: 2,
@@ -165,8 +259,6 @@ export function ScreenshotHost({ projectId, designs }: ScreenshotHostProps) {
           error: err instanceof Error ? err.message : String(err),
         });
       } finally {
-        // Schedule sticky teardown regardless of outcome — we don't keep
-        // a broken bundler alive any longer than a healthy one.
         if (!cancelled) {
           inFlightRequestId.current = null;
           scheduleTeardown();
@@ -190,19 +282,15 @@ export function ScreenshotHost({ projectId, designs }: ScreenshotHostProps) {
         }
       }, STICKY_KEEPALIVE_MS);
     }
-    // We depend ONLY on the request id (so each new request fires the
-    // effect exactly once) and on `designs` via `designById` (so a
-    // freshly-created design becomes screenshot-able as soon as it
-    // arrives in props). `mountedDesignId` and `resolveRequest` are
-    // intentionally omitted — they're refs/stable callbacks captured
-    // through closures, and including them would re-run the effect
-    // mid-capture.
+    // Depend ONLY on the request id (so each new request fires the effect
+    // exactly once) and on `designs` via `designById`. `mountedDesignId`
+    // and `resolveRequest` are intentionally omitted — they're stable/ref
+    // values captured through closures so including them would re-run the
+    // effect mid-capture.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingRequest?.id, designById]);
 
-  // Cleanup on unmount — cancel any pending teardown timer so it doesn't
-  // fire after the host is gone (no-op for state, but keeps the timer
-  // count accurate for tests / dev mode).
+  // Cleanup on unmount — cancel any pending teardown timer.
   useEffect(() => {
     return () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -230,39 +318,64 @@ export function ScreenshotHost({ projectId, designs }: ScreenshotHostProps) {
         pointerEvents: "none",
       }}
     >
-      <ScreenshotSandpack design={design} hostRef={hostRef} />
+      <ScreenshotSandpack
+        design={design}
+        hostRef={hostRef}
+        onReady={() => handleSandpackReady(design.id)}
+      />
     </div>
   );
 }
 
 /**
- * Poll the host's DOM until the Sandpack iframe is mounted, has a
- * `contentWindow` (i.e. is actually a navigable document, not just a
- * placeholder element), and stamps `data-design-id` matching the request.
- * Throws on timeout so the orchestrator surfaces a clean error to the
- * agent rather than hanging.
+ * Wait for Sandpack to signal compilation is complete for `designId`. Resolves
+ * as soon as `handleSandpackReady(designId)` is called from `ReadinessMonitor`,
+ * or after `timeoutMs` as a fallback (so we still attempt the screenshot on
+ * very slow machines rather than hanging forever).
  */
-async function waitForHostedIframe(
-  hostRef: RefObject<HTMLDivElement | null>,
+function waitForSandpackReady(
   designId: string,
+  pendingCbs: Map<string, Set<() => void>>,
   timeoutMs: number,
-): Promise<HTMLIFrameElement> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const host = hostRef.current;
-    if (host && host.dataset.designId === designId) {
-      const iframe =
-        host.querySelector<HTMLIFrameElement>("iframe.sp-preview-iframe") ??
-        findSandpackIframe(host);
-      if (iframe?.contentWindow) return iframe;
+): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      // Timed out — clean up and fall through to best-effort screenshot.
+      const cbs = pendingCbs.get(designId);
+      if (cbs) {
+        cbs.delete(wrappedResolve);
+        if (cbs.size === 0) pendingCbs.delete(designId);
+      }
+      resolve();
+    }, timeoutMs);
+
+    function wrappedResolve() {
+      clearTimeout(timer);
+      resolve();
     }
-    await sleep(IFRAME_POLL_INTERVAL_MS);
-  }
-  throw new Error(
-    "Hidden screenshot iframe didn't mount in time — the design may still be compiling.",
-  );
+
+    let cbs = pendingCbs.get(designId);
+    if (!cbs) {
+      cbs = new Set();
+      pendingCbs.set(designId, cbs);
+    }
+    cbs.add(wrappedResolve);
+  });
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+/**
+ * Synchronous iframe lookup. By the time this is called Sandpack has already
+ * fired "done", so the iframe element is guaranteed to be in the DOM.
+ */
+function findHostedIframe(
+  hostRef: React.RefObject<HTMLDivElement | null>,
+  designId: string,
+): HTMLIFrameElement | null {
+  const host = hostRef.current;
+  if (!host || host.dataset.designId !== designId) return null;
+  return (
+    host.querySelector<HTMLIFrameElement>("iframe.sp-preview-iframe") ??
+    findSandpackIframe(host) ??
+    null
+  );
 }

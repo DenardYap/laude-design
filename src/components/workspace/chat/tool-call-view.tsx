@@ -4,6 +4,7 @@ import type { UIMessagePart, UIDataTypes, UITools } from "ai";
 
 import { AnimatedEllipsis } from "@/components/workspace/chat/animated-ellipsis";
 import { getToolDisplay } from "@/components/workspace/chat/utils/tool-display";
+import { CHAT_ERR_PREFIX } from "@/components/workspace/chat/utils/message-utils";
 
 export function ToolCallView({
   part,
@@ -50,7 +51,7 @@ export function ToolCallView({
           {isPending ? <AnimatedEllipsis /> : null}
         </span>
       </div>
-      {hasError && anyPart.errorText ? (
+      {hasError && anyPart.errorText && !anyPart.errorText.startsWith(CHAT_ERR_PREFIX) ? (
         <div className="mt-0.5 pl-[18px] text-destructive">
           {anyPart.errorText}
         </div>

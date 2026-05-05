@@ -1,4 +1,4 @@
-import type { AiProvider } from "@prisma/client";
+import type { AiProvider } from "@/lib/validators";
 
 export type ModelProvider = AiProvider;
 
@@ -198,7 +198,3 @@ export interface ChatSessionDTO {
   usage: SessionUsage;
 }
 
-export interface ApiKeySummary {
-  provider: ModelProvider;
-  lastFour: string;
-}

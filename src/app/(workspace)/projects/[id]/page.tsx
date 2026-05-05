@@ -52,7 +52,6 @@ export default async function ProjectWorkspacePage({
       sessions={data.sessions}
       folders={data.folders}
       designs={data.designs}
-      apiKeys={data.apiKeys}
       user={{
         name: session.user.name ?? null,
         email: session.user.email ?? null,

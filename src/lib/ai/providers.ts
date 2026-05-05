@@ -1,12 +1,11 @@
+// SECURITY: Never log the apiKey argument. Errors are sanitized before
+// reaching the client — see errorMessageForClient in the chat route.
 import { match } from "ts-pattern";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { LanguageModel } from "ai";
-import type { AiProvider } from "@prisma/client";
-
-import { db } from "@/lib/db";
-import { decryptSecret } from "@/lib/crypto";
+import type { AiProvider } from "@/lib/validators";
 
 export class MissingApiKeyError extends Error {
   constructor(public provider: AiProvider) {
@@ -15,21 +14,16 @@ export class MissingApiKeyError extends Error {
   }
 }
 
-export async function resolveModel(
-  userId: string,
+export function resolveModel(
   provider: AiProvider,
   modelId: string,
-): Promise<LanguageModel> {
-  const apiKey = await db.apiKey.findUnique({
-    where: { userId_provider: { userId, provider } },
-    select: { ciphertext: true },
-  });
-  if (!apiKey) throw new MissingApiKeyError(provider);
-  const secret = decryptSecret(apiKey.ciphertext);
+  apiKey: string,
+): LanguageModel {
+  if (!apiKey?.trim()) throw new MissingApiKeyError(provider);
 
   return match(provider)
-    .with("CLAUDE", () => createAnthropic({ apiKey: secret })(modelId))
-    .with("OPENAI", () => createOpenAI({ apiKey: secret })(modelId))
-    .with("GEMINI", () => createGoogleGenerativeAI({ apiKey: secret })(modelId))
+    .with("CLAUDE", () => createAnthropic({ apiKey })(modelId))
+    .with("OPENAI", () => createOpenAI({ apiKey })(modelId))
+    .with("GEMINI", () => createGoogleGenerativeAI({ apiKey })(modelId))
     .exhaustive();
 }

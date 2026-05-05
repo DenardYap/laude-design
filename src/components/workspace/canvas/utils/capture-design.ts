@@ -28,10 +28,11 @@ const VISIBLE_MOUNT_TIMEOUT_MS = 3_000;
 // 3s for the visible-iframe fast path (the iframe is already hot — if it
 // didn't appear in 3s, something else is wrong and we should fall back to
 // the hidden host rather than wait further).
-const HIDDEN_HOST_TIMEOUT_MS = 30_000;
-// 30s budget for the hidden host: cold-start Sandpack + bundler compile +
-// htmlToImage render + dataUrl roundtrip. Overshoots typical 3-7s by a
-// healthy margin so a slow first-run on a user's machine doesn't fail.
+const HIDDEN_HOST_TIMEOUT_MS = 60_000;
+// 60s budget for the hidden host. The host now waits for Sandpack's "done"
+// event (up to 35s) before calling requestIframeScreenshot (25s), giving a
+// worst-case ceiling of ~60s for very slow first-run compiles. Warm repeat
+// captures complete in ~1-3s because `readyDesignIds` skips the wait.
 
 /**
  * Capture the live render of a design and upload it. Used by the agent's
@@ -70,7 +71,7 @@ export async function captureDesignScreenshot(
     );
   }
 
-  const file = await dataUrlToFile(dataUrl, buildScreenshotFilename());
+  const file = dataUrlToFile(dataUrl, buildScreenshotFilename());
   return uploadAttachment(projectId, file);
 }
 
@@ -156,9 +157,17 @@ async function captureViaHiddenHost(
   }
 }
 
-async function dataUrlToFile(dataUrl: string, name: string): Promise<File> {
-  const blob = await (await fetch(dataUrl)).blob();
-  return new File([blob], name, { type: blob.type });
+function dataUrlToFile(dataUrl: string, name: string): File {
+  // fetch(dataUrl) is blocked by CSP (connect-src doesn't cover data: URIs).
+  // Decode the base64 payload directly instead.
+  const [header, base64] = dataUrl.split(",");
+  const mime = header.match(/:(.*?);/)?.[1] ?? "image/png";
+  const binary = atob(base64 ?? "");
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new File([bytes], name, { type: mime });
 }
 
 function sleep(ms: number): Promise<void> {

@@ -281,6 +281,25 @@ export function SessionTabs({ projectId, sessions }: SessionTabsProps) {
       }
     }
 
+    // sessions is sorted createdAt asc, so the last entry is the most recent.
+    // If the most recent session is already empty, open it instead of creating
+    // a brand new one (e.g. when the user closes all tabs and one is already waiting).
+    const mostRecentSession = sessions[sessions.length - 1];
+    if (mostRecentSession?.isEmpty) {
+      const id = mostRecentSession.id;
+      const hasDraft =
+        (storeState.draftBySession[id] ?? "").trim().length > 0;
+      const hasPendingAttachments =
+        (storeState.pendingAttachmentsBySession[id] ?? []).length > 0;
+      const hasPendingTags =
+        (storeState.pendingTagsBySession[id] ?? []).length > 0;
+      const isStreaming = Boolean(storeState.streamingSessionIds[id]);
+      if (!hasDraft && !hasPendingAttachments && !hasPendingTags && !isStreaming) {
+        setActive(projectId, id);
+        return;
+      }
+    }
+
     creatingRef.current = true;
     const tempId = `${TEMP_SESSION_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const previousActive = liveActiveId;

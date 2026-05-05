@@ -42,7 +42,7 @@ export function ExportToAgentDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Export to your favorite agent</DialogTitle>
           <DialogDescription>

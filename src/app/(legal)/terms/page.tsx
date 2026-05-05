@@ -115,7 +115,7 @@ export default function TermsPage() {
           </li>
           <li>
             Attempt to break, abuse, or reverse engineer the security of the
-            service, including the systems that store encrypted API keys;
+            service, including the systems that process API keys;
           </li>
           <li>
             Run automated scraping, denial-of-service attacks, or use the

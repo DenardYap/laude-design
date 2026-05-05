@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, ExternalLink, Eye, EyeOff, Loader2, Trash2 } from "lucide-react";
+import { Check, ExternalLink, Eye, EyeOff, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -18,17 +16,23 @@ import {
   Pill,
 } from "@/components/ui";
 import { ApiKeySchema, type ApiKeyInput } from "@/lib/validators";
-import { deleteApiKey, saveApiKey } from "@/server/actions/api-keys";
+import { useApiKeysStore } from "@/stores/api-keys-store";
+import { lastFour } from "@/lib/api-keys/last-four";
 import type { ApiKeyRowProps } from "@/components/api-keys/types/api-keys";
 
 export type { ProviderConfig } from "@/components/api-keys/types/api-keys";
 
-export function ApiKeyRow({ config, existing }: ApiKeyRowProps) {
-  const router = useRouter();
+export function ApiKeyRow({ config }: ApiKeyRowProps) {
+  const setKey = useApiKeysStore((s) => s.setKey);
+  const clearKey = useApiKeysStore((s) => s.clearKey);
+  // Subscribe to this provider's key directly so the row re-renders
+  // immediately when the key is saved or cleared.
+  const rawKey = useApiKeysStore((s) => s.keys[config.provider]);
+  const existing = rawKey ? { lastFour: lastFour(rawKey) } : undefined;
+
   const [editing, setEditing] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [pending, startTransition] = useTransition();
 
   const form = useForm<ApiKeyInput>({
     resolver: zodResolver(ApiKeySchema),
@@ -47,18 +51,16 @@ export function ApiKeyRow({ config, existing }: ApiKeyRowProps) {
   }
 
   function onSubmit(values: ApiKeyInput) {
-    startTransition(async () => {
-      try {
-        await saveApiKey(values);
-        toast.success(`${config.name} key saved`);
-        setEditing(false);
-        setShowSecret(false);
-        form.reset({ provider: config.provider, secret: "" });
-        router.refresh();
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to save key");
-      }
-    });
+    setKey(values.provider, values.secret);
+    toast.success(`${config.name} key saved`);
+    setEditing(false);
+    setShowSecret(false);
+    form.reset({ provider: config.provider, secret: "" });
+  }
+
+  function handleDelete() {
+    clearKey(config.provider);
+    toast.success(`${config.name} key removed`);
   }
 
   return (
@@ -105,7 +107,7 @@ export function ApiKeyRow({ config, existing }: ApiKeyRowProps) {
               ) : null}
             </>
           ) : (
-            <Button variant="ghost" size="sm" onClick={cancelEditing} disabled={pending}>
+            <Button variant="ghost" size="sm" onClick={cancelEditing}>
               Cancel
             </Button>
           )}
@@ -140,8 +142,7 @@ export function ApiKeyRow({ config, existing }: ApiKeyRowProps) {
               <p className="text-xs text-destructive">{form.formState.errors.secret.message}</p>
             ) : null}
           </div>
-          <Button type="submit" size="sm" disabled={pending}>
-            {pending ? <Loader2 className="size-4 animate-spin" /> : null}
+          <Button type="submit" size="sm">
             Save
           </Button>
         </form>
@@ -151,18 +152,10 @@ export function ApiKeyRow({ config, existing }: ApiKeyRowProps) {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={`Delete ${config.name} key?`}
-        description="The key will be removed from this app. Make sure you also revoke it on the provider dashboard if it might be compromised."
+        description="The key will be removed from this browser. Make sure you also revoke it on the provider dashboard if it might be compromised."
         confirmLabel="Delete"
         tone="destructive"
-        onConfirm={async () => {
-          try {
-            await deleteApiKey(config.provider);
-            toast.success(`${config.name} key removed`);
-            router.refresh();
-          } catch (e) {
-            toast.error(e instanceof Error ? e.message : "Failed to delete");
-          }
-        }}
+        onConfirm={handleDelete}
       />
     </li>
   );

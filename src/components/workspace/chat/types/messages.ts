@@ -1,10 +1,8 @@
 import type { UIMessage } from "ai";
-import type { ApiKeySummary } from "@/lib/workspace/types";
 import type { ChatError } from "@/components/workspace/chat/utils/chat-errors";
 
 export interface ChatPaneProps {
   projectId: string;
-  apiKeys: ApiKeySummary[];
   /**
    * True when the project already has at least one session on the server.
    * Used to distinguish "loading sessions" (show skeleton) from "genuinely

@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import type { WheelEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ImageIcon,
@@ -27,9 +26,23 @@ export function ThumbnailPreview({ status, designName, onRetry }: ThumbnailPrevi
 
   const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 
-  const handleWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
-    setZoom((z) => clampZoom(z - e.deltaY * 0.001));
+  const setZoomRef = useRef(setZoom);
+  useEffect(() => {
+    setZoomRef.current = setZoom;
+  });
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setZoomRef.current((z) => clampZoom(z - e.deltaY * 0.001));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  // clampZoom is defined in the render scope and is stable (no deps)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isTall = naturalHeight !== null && naturalHeight > MAX_NATURAL_HEIGHT;
@@ -40,7 +53,6 @@ export function ThumbnailPreview({ status, designName, onRetry }: ThumbnailPrevi
         ref={scrollRef}
         className="relative w-full overflow-auto rounded-lg border border-border bg-surface-sunken/40"
         style={isTall ? { maxHeight: MAX_NATURAL_HEIGHT } : undefined}
-        onWheel={handleWheel}
       >
         {match(status)
           .with({ status: "waiting" }, () => (

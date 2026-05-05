@@ -1,14 +1,12 @@
-import { ShieldAlert } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
-import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { ApiKeysList } from "@/components/api-keys/api-keys-list";
+import { MigrationBanner } from "@/components/api-keys/migration-banner";
 import type { ProviderConfig } from "@/components/api-keys/types/api-keys";
 import { AnthropicIcon } from "@/components/api-keys/anthropic-icon";
 import { GoogleIcon } from "@/components/api-keys/google-icon";
 import { OpenAIIcon } from "@/components/api-keys/openai-icon";
-import type { AiProvider } from "@/lib/validators";
 
 export const metadata = { title: "Configure API · Laude Design" };
 
@@ -39,38 +37,23 @@ const PROVIDERS: ProviderConfig[] = [
   },
 ];
 
-export default async function ApiKeysPage() {
-  const user = await requireUser();
-  const existingKeys = await db.apiKey.findMany({
-    where: { userId: user.id },
-    select: { provider: true, lastFour: true, updatedAt: true },
-  });
-
-  const existingByProvider = existingKeys.reduce(
-    (acc, k) => {
-      acc[k.provider as AiProvider] = {
-        lastFour: k.lastFour,
-        updatedAt: k.updatedAt,
-      };
-      return acc;
-    },
-    {} as Record<AiProvider, { lastFour: string; updatedAt: Date } | undefined>,
-  );
-
+export default function ApiKeysPage() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
       <PageHeader
         title="Configure API"
-        description="Bring your own keys for the LLMs you want to use. Keys are encrypted at rest."
+        description="Bring your own keys for the LLMs you want to use."
       />
       <p className="flex items-start gap-1.5 text-xs text-ink-muted">
-        <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
+        <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-success" />
         <span>
-          Use a dedicated key per provider — never reuse a production key. Keys are encrypted at
-          rest with AES-256-GCM and never shown in full.
+          Keys are stored in this browser and sent to our server only when processing your AI
+          requests — we never write them to our database.{" "}
+          <strong>Use a dedicated key per provider</strong> and revoke it on the provider&apos;s
+          dashboard if it may be compromised.
         </span>
       </p>
-      <ApiKeysList providers={PROVIDERS} existingByProvider={existingByProvider} />
+      <ApiKeysList providers={PROVIDERS} />
     </div>
   );
 }

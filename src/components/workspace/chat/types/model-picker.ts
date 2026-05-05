@@ -1,9 +1,8 @@
-import type { ApiKeySummary, ModelOption, ModelProvider } from "@/lib/workspace/types";
+import type { ModelOption, ModelProvider } from "@/lib/workspace/types";
 
 export interface ModelPickerProps {
   projectId: string;
   sessionId: string;
-  apiKeys: ApiKeySummary[];
 }
 
 export type ProviderFilter = ModelProvider | "ALL";

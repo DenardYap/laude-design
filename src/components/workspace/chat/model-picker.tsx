@@ -25,6 +25,7 @@ import {
 } from "@/lib/workspace/types";
 import type { ModelOption, ModelProvider } from "@/lib/workspace/types";
 import { resolveSessionModel, useWorkspaceStore } from "@/stores/workspace-store";
+import { useApiKeysStore, useConfiguredProviders } from "@/stores/api-keys-store";
 import type {
   ModelPickerProps,
   ModelRowProps,
@@ -38,19 +39,16 @@ const PROVIDER_FILTERS: ReadonlyArray<{ value: ProviderFilter; label: string }> 
   ...PROVIDER_ORDER.map((p) => ({ value: p, label: PROVIDER_LABEL[p] })),
 ];
 
-export function ModelPicker({ projectId, sessionId, apiKeys }: ModelPickerProps) {
+export function ModelPicker({ projectId, sessionId }: ModelPickerProps) {
   const selected = useWorkspaceStore(
     (s) => resolveSessionModel(sessionId, projectId, s),
   );
   const setSelected = useWorkspaceStore((s) => s.setSelectedModel);
+  const configured = useConfiguredProviders();
+  const getMasked = useApiKeysStore((s) => s.getMasked);
 
   const [open, setOpen] = useState(false);
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>("ALL");
-
-  const configured = useMemo(
-    () => new Set(apiKeys.map((k) => k.provider)),
-    [apiKeys],
-  );
 
   const activeModel: ModelOption = resolveModelOption(selected);
   const activeOk = configured.has(activeModel.provider);
@@ -106,7 +104,7 @@ export function ModelPicker({ projectId, sessionId, apiKeys }: ModelPickerProps)
             <CommandEmpty>No models match.</CommandEmpty>
             {groups.map(({ provider, options }) => {
               const ok = configured.has(provider);
-              const lastFour = apiKeys.find((k) => k.provider === provider)?.lastFour;
+              const masked = getMasked(provider);
               return (
                 <CommandGroup
                   key={provider}
@@ -114,7 +112,7 @@ export function ModelPicker({ projectId, sessionId, apiKeys }: ModelPickerProps)
                     <ProviderHeading
                       provider={provider}
                       configured={ok}
-                      lastFour={lastFour}
+                      lastFour={masked?.lastFour}
                     />
                   }
                 >

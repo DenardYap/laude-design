@@ -15,6 +15,8 @@ import {
   useWorkspaceStore,
   resolveSessionModel,
 } from "@/stores/workspace-store";
+import { useApiKeysStore } from "@/stores/api-keys-store";
+import { useOptimisticFilesStore } from "@/stores/optimistic-files-store";
 import { MessageList } from "@/components/workspace/chat/message-list";
 import {
   type ChatError,
@@ -88,6 +90,28 @@ export function ActiveSession({
     selfCritiqueRef.current = selfCritique;
   }, [selfCritique]);
 
+  // useChat holds onto the original transport ref internally and doesn't
+  // swap it out when the prop changes, so closures inside
+  // prepareSendMessagesRequest would capture stale values. Use refs for
+  // anything that can change after mount (model, activeDesignId) so every
+  // send always reads the latest value regardless of when transport was
+  // first constructed.
+  const selectedModelRef = useRef(selectedModel);
+  useEffect(() => {
+    selectedModelRef.current = selectedModel;
+  }, [selectedModel]);
+
+  const activeDesignIdRef = useRef(activeDesignId);
+  useEffect(() => {
+    activeDesignIdRef.current = activeDesignId;
+  }, [activeDesignId]);
+
+  // Clear any stale error banner when the user switches to a different model —
+  // the old error (e.g. "No API key for Claude") no longer applies.
+  useEffect(() => {
+    setChatError(null);
+  }, [selectedModel]);
+
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
@@ -98,23 +122,37 @@ export function ActiveSession({
           trigger,
           messageId,
           body,
-        }) => ({
-          body: {
-            ...body,
-            id,
-            messages,
-            trigger,
-            messageId,
-            sessionId,
-            modelId: resolveModelOption(selectedModel).modelId,
-            provider: resolveModelOption(selectedModel).provider,
-            activeDesignId,
-            selfCritique: selfCritiqueRef.current,
-          },
-        }),
+        }) => {
+          const active = resolveModelOption(selectedModelRef.current);
+          // Read the key synchronously from store state — no hook needed.
+          // Sent as a header rather than a body field so it stays out of
+          // request-body logs and can be stripped by a reverse proxy with a
+          // single `proxy_hide_header` directive.
+          const apiKey = (useApiKeysStore.getState().keys as Record<string, string | undefined>)[active.provider] ?? "";
+          return {
+            headers: {
+              "x-provider-api-key": apiKey,
+            },
+            body: {
+              ...body,
+              id,
+              messages,
+              trigger,
+              messageId,
+              sessionId,
+              modelId: active.modelId,
+              provider: active.provider,
+              activeDesignId: activeDesignIdRef.current,
+              selfCritique: selfCritiqueRef.current,
+            },
+          };
+        },
       }),
+    // selectedModel and activeDesignId are intentionally omitted — they are
+    // accessed via refs so the transport never needs to be reconstructed when
+    // they change (useChat wouldn't pick up a new transport anyway).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [projectId, sessionId, selectedModel, activeDesignId],
+    [projectId, sessionId],
   );
 
   // Keep a ref to the latest messages so onData callbacks can read the current
@@ -237,6 +275,25 @@ export function ActiveSession({
     consumeComposerSubmission(sessionId);
   }, [pendingSubmission, sendMessage, consumeComposerSubmission, sessionId]);
 
+  // Auto-navigate the canvas to any design the agent has just finished
+  // creating via the `createDesign` tool. The id-set ref guarantees each
+  // tool call only triggers navigation once even though `messages` is
+  // re-emitted on every streamed chunk.
+  //
+  // We ALSO seed the freshly-created design into the optimistic files
+  // overlay before flipping the active tab. Without this, `openDesignTab`
+  // would set `activeTab = "design:{newId}"` immediately, but the new id
+  // wouldn't appear in the `designs` prop (which is server-sourced) until
+  // `router.refresh()` lands ~hundreds of ms later — leaving the user
+  // staring at an empty canvas with no visible tab change. The overlay
+  // entry, built from the tool's input + output, lets `CanvasTabStrip`
+  // render the new tab and `CanvasPane` render the design with its real
+  // /App.tsx contents in the same frame as the navigation. The overlay
+  // is dropped automatically by `optimistic-files-store.reconcile()` once
+  // the server data catches up.
+  const addPendingDesign = useOptimisticFilesStore(
+    (s) => s.addPendingDesign,
+  );
   const navigatedToolCallIds = useRef<Set<string>>(new Set());
   useEffect(() => {
     for (const message of messages) {
@@ -246,17 +303,38 @@ export function ActiveSession({
         const p = part as {
           toolCallId: string;
           state: string;
-          output?: { designId?: string };
+          input?: {
+            name?: string;
+            content?: string;
+            folderId?: string | null;
+          };
+          output?: {
+            designId?: string;
+            name?: string;
+            folderId?: string | null;
+          };
         };
         if (p.state !== "output-available") continue;
         if (navigatedToolCallIds.current.has(p.toolCallId)) continue;
         const designId = p.output?.designId;
         if (!designId) continue;
         navigatedToolCallIds.current.add(p.toolCallId);
+        const name = p.output?.name ?? p.input?.name ?? "Untitled design";
+        const folderId = p.output?.folderId ?? p.input?.folderId ?? null;
+        const content = p.input?.content ?? "";
+        addPendingDesign({
+          id: designId,
+          name,
+          folderId,
+          files: content
+            ? [{ path: "/App.tsx", content }]
+            : [],
+          updatedAt: new Date().toISOString(),
+        });
         openDesignTab(projectId, designId);
       }
     }
-  }, [messages, openDesignTab, projectId]);
+  }, [messages, openDesignTab, projectId, addPendingDesign]);
 
   const refreshedToolCallIds = useRef<Set<string>>(new Set());
   useEffect(() => {

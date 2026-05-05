@@ -93,7 +93,9 @@ prisma/
 
 ## Security notes
 
-- API keys are encrypted at rest with AES-256-GCM (`src/lib/crypto.ts`) using `ENCRYPTION_KEY`. Plaintext is never returned to the client; the UI only shows the last four characters.
-- Always create a dedicated key per provider for this app and never share it.
+- **API keys are stored only in your browser** — never in the database, never on the server. They live in `localStorage` under the key `laude.apiKeys.v1` and are transmitted over HTTPS to the server in-memory per request, then immediately discarded. We have no ability to read or decrypt your keys, and no bulk-exfiltration risk exists even if the server or database were compromised.
+- Each chat request sends only the active provider's key in the JSON body. The server uses it in-process to call the LLM, then discards it. No disk writes, no log lines.
+- A strict **Content-Security-Policy** (including `connect-src 'self'`) is applied on every response. Even if an XSS attack were to succeed, the browser would refuse to transmit the key to any attacker-controlled origin.
+- Always create a dedicated key per provider for this app and revoke it from the provider dashboard if it might be compromised.
 - `.env` and any `*.local` env files are git-ignored.
 # laude-design

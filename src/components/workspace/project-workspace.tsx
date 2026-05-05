@@ -7,7 +7,6 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 import { LayoutDashboard, MessageSquare } from "lucide-react";
 
 import type {
-  ApiKeySummary,
   ChatSessionDTO,
   DesignDTO,
   FolderDTO,
@@ -52,7 +51,6 @@ interface ProjectWorkspaceProps {
   sessions: ChatSessionDTO[];
   folders: FolderDTO[];
   designs: DesignDTO[];
-  apiKeys: ApiKeySummary[];
   user: { name: string | null; email: string | null; image: string | null };
   allProjects: { id: string; name: string }[];
   /**
@@ -69,7 +67,6 @@ export function ProjectWorkspace({
   sessions,
   folders: serverFolders,
   designs: serverDesigns,
-  apiKeys,
   user,
   allProjects,
   ssrIsDesktop,
@@ -156,6 +153,18 @@ export function ProjectWorkspace({
   // three can share them. The viewportRef is the scrollable parent — the
   // Draw tool screenshots only what the user can see, so it captures from
   // there instead of the full scaled `captureRef` interior.
+  // When self-critique is active for the current session, pre-warm the hidden
+  // Sandpack with the design the user is currently viewing. This gives the
+  // bundler a head start so screenshotDesign calls return in ~1s (warm) rather
+  // than 3-7s (cold). Null when self-critique is off → triggers eager teardown.
+  const preWarmDesignId = useWorkspaceStore((s) => {
+    const sessionId = s.activeSessionByProject[project.id];
+    if (!sessionId || !(s.selfCritiqueBySession[sessionId] ?? false)) return null;
+    const tab = s.activeTabByProject[project.id];
+    if (!tab?.startsWith("design:")) return null;
+    return tab.slice("design:".length);
+  });
+
   const captureRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const screenshot = useCanvasScreenshot(project.id, captureRef);
@@ -191,7 +200,7 @@ export function ProjectWorkspace({
         />
       </div>
       <div className="min-h-0 flex-1">
-        <ChatPane projectId={project.id} apiKeys={apiKeys} hasSessions={sessions.length > 0} />
+        <ChatPane projectId={project.id} hasSessions={sessions.length > 0} />
       </div>
     </div>
   );
@@ -250,7 +259,7 @@ export function ProjectWorkspace({
               />
             </div>
           }
-          chatBody={<ChatPane projectId={project.id} apiKeys={apiKeys} hasSessions={sessions.length > 0} />}
+          chatBody={<ChatPane projectId={project.id} hasSessions={sessions.length > 0} />}
           canvasBody={
             <CanvasPane
               projectId={project.id}
@@ -295,7 +304,11 @@ export function ProjectWorkspace({
         and benefits from sticky-mount keepalive across multi-round revision
         sessions. Fully invisible / inert; see `screenshot-host.tsx`.
       */}
-      <ScreenshotHost projectId={project.id} designs={designs} />
+      <ScreenshotHost
+        projectId={project.id}
+        designs={designs}
+        preWarmDesignId={preWarmDesignId}
+      />
 
       <DrawingShapeBar
         projectId={project.id}

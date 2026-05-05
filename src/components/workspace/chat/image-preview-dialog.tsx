@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type { WheelEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Minus, Plus, X } from "lucide-react";
 
@@ -34,14 +33,14 @@ function ImageViewport({
   zoom,
   naturalHeight,
   onNaturalHeightLoad,
-  onWheel,
+  viewportRef,
 }: ImageViewportProps) {
   const isTall = naturalHeight !== null && naturalHeight > IMG_MAX_HEIGHT;
   return (
     <div
+      ref={viewportRef}
       className="overflow-auto"
       style={isTall ? { maxHeight: IMG_MAX_HEIGHT } : undefined}
-      onWheel={onWheel}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -125,6 +124,7 @@ export function ImagePreviewDialog({
 }) {
   const [zoom, setZoom] = useState(1);
   const [naturalHeight, setNaturalHeight] = useState<number | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -133,10 +133,29 @@ export function ImagePreviewDialog({
     }
   }, [open]);
 
-  const handleWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setZoom((z) => clamp(z - e.deltaY * 0.001));
-  }, []);
+  // Attach a native (non-passive) wheel listener so we can call preventDefault
+  // only when zooming. Plain scroll passes through untouched, preventing the
+  // "both zoom and scroll at the same time" problem that occurs when a passive
+  // React onWheel handler calls preventDefault (which the browser silently
+  // ignores, so the container scrolls anyway).
+  const setZoomRef = useRef(setZoom);
+  useEffect(() => {
+    setZoomRef.current = setZoom;
+  });
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setZoomRef.current((z) => clamp(z - e.deltaY * 0.001));
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,7 +170,7 @@ export function ImagePreviewDialog({
           zoom={zoom}
           naturalHeight={naturalHeight}
           onNaturalHeightLoad={setNaturalHeight}
-          onWheel={handleWheel}
+          viewportRef={viewportRef}
         />
         <ZoomToolbar zoom={zoom} onZoomChange={setZoom} />
       </DialogContent>

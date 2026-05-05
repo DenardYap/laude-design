@@ -47,7 +47,7 @@ export function useCanvasScreenshot(
         toast.error("Open a session first");
         return;
       }
-      const file = await dataUrlToFile(dataUrl, buildScreenshotName());
+      const file = dataUrlToFile(dataUrl, buildScreenshotName());
       const uploaded = await uploadAttachment(projectId, file);
       addAttachment(sessionId, { ...uploaded, kind: "screenshot" });
       toast.success("Screenshot attached to message");
@@ -155,9 +155,17 @@ export function useCanvasScreenshot(
   return { captureFull, captureArea, startAreaCapture };
 }
 
-async function dataUrlToFile(dataUrl: string, name: string): Promise<File> {
-  const blob = await (await fetch(dataUrl)).blob();
-  return new File([blob], name, { type: blob.type });
+function dataUrlToFile(dataUrl: string, name: string): File {
+  // fetch(dataUrl) is blocked by CSP (connect-src doesn't allow data: URIs).
+  // Decode the base64 payload directly instead.
+  const [header, base64] = dataUrl.split(",");
+  const mime = header.match(/:(.*?);/)?.[1] ?? "image/png";
+  const binary = atob(base64 ?? "");
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new File([bytes], name, { type: mime });
 }
 
 // Mimics macOS' "Screenshot 2026-05-01 at 3.36.42 PM.png" style — readable,
