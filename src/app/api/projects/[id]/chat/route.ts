@@ -470,7 +470,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           // prevents Gemini (and other models that ignore the tool's "end
           // your turn" instruction) from forging ahead server-side.
           (state.steps.at(-1)?.toolCalls.some(
-            (tc) => tc.toolName === "askClarifyingQuestions",
+            (tc) => tc?.toolName === "askClarifyingQuestions",
           ) ?? false),
         // Propagate the client's abort (Stop button -> useChat.stop()) all the
         // way down so we stop billing tokens immediately instead of letting

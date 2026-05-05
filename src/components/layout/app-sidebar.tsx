@@ -37,7 +37,7 @@ export function AppSidebar() {
 
   // Auto-close the mobile drawer on route change so navigating from a nav
   // item doesn't leave the user staring at an open drawer over the new
-  // page.
+  // page on mobile.
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname, setMobileOpen]);

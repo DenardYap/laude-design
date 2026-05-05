@@ -2,7 +2,6 @@ import { ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/ui";
 import { ApiKeysList } from "@/components/api-keys/api-keys-list";
-import { MigrationBanner } from "@/components/api-keys/migration-banner";
 import type { ProviderConfig } from "@/components/api-keys/types/api-keys";
 import { AnthropicIcon } from "@/components/api-keys/anthropic-icon";
 import { GoogleIcon } from "@/components/api-keys/google-icon";

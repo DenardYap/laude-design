@@ -117,6 +117,7 @@ export const useScreenshotRequestStore = create<ScreenshotRequestState>(
 
     clearRequest: (id) => {
       set((s) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [id]: _removed, ...rest } = s.resultsById;
         const pendingMatches = s.pendingRequest?.id === id;
         return {
