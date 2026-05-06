@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { Metadata, Viewport } from "next";
 import { Barlow, Cabin_Sketch } from "next/font/google";
 import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 import "@/styles/globals.css";
 import { Toaster, TooltipProvider } from "@/components/ui";
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </QueryProvider>
         <Toaster closeButton />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
