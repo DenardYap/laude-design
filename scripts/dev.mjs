@@ -63,7 +63,7 @@ function ensureEnv() {
   let raw = readFileSync(ENV_PATH, "utf8");
   const generated = [];
 
-  for (const key of ["AUTH_SECRET"]) {
+  for (const key of ["AUTH_SECRET", "ENCRYPTION_KEY"]) {
     const re = new RegExp(`^${key}\\s*=\\s*"?\\s*"?\\s*$`, "m");
     if (re.test(raw)) {
       const value = randomBytes(32).toString("base64");

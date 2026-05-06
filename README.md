@@ -84,9 +84,8 @@ You can set keys to auto-expire after 7, 14, or 30 days, or keep them indefinite
 
 A strict Content-Security-Policy is set on every response (see [`src/middleware.ts`](src/middleware.ts)) — `connect-src 'self'` plus `script-src 'strict-dynamic'` with a per-request nonce — so even a successful XSS attack cannot exfiltrate key material to an outside origin.
 
-**The honest trust model:** the deployed server decrypts your key in-memory for the duration of each request — that is true of any server-side BYOK product. What you get instead is verifiability: the server at [laude-design.com](https://laude-design.com) runs exactly the code in this repo, and "is the plaintext key ever persisted or logged?" is a question you can answer by reading [`src/lib/crypto.ts`](src/lib/crypto.ts) and [`src/server/actions/api-keys.ts`](src/server/actions/api-keys.ts). If you want stronger isolation than that, self-host.
 
-**I recommend you self-host or just run this project locally if you do not trust [laude-design.com](https://laude-design.com), which is understandable!**
+**I recommend you self-host or just run this project locally if you do not trust [laude-design.com](https://laude-design.com)**
 
 **Best practice: create a dedicated key for this app at each provider and revoke it if anything looks off. DO NOT USE YOUR COMPANY's API KEY, USE A PERSONAL API KEY!**
 
