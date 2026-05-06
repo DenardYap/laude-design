@@ -3,6 +3,10 @@ export interface EmptyCanvasProps {
   message?: string;
 }
 
+export interface FilesActionsProps {
+  projectId: string;
+}
+
 export interface Point {
   x: number;
   y: number;

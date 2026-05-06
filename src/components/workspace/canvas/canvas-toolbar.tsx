@@ -53,9 +53,8 @@ export function CanvasToolbar({
   const runActionGuarded = useCallback(
     (action: () => void) => {
       if (tool === "draw") {
-        // Switch back to idle first so the action sees a clean slate; many
-        // capture helpers internally call setTool("idle") in their finally
-        // blocks anyway, this just makes the intermediate state explicit.
+        // We might want to perform an action immedaitely after
+        // discarding the drawings like taking a screenshot.
         onRequestSwitch("idle", action);
       } else {
         action();
@@ -117,9 +116,7 @@ export function CanvasToolbar({
         }
       }
 
-      // ⌘+ / ⌘- / ⌘0 — simulate wider/narrower screen. Accept "+" and "="
-      // (same physical key on US layouts) and "-" / "_" so shift state
-      // doesn't matter to the user.
+      // ⌘+ / ⌘- / ⌘0 — simulate wider/narrower screen.
       if (e.key === "=" || e.key === "+") {
         e.preventDefault();
         zoomIn();

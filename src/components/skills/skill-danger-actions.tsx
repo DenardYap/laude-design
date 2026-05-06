@@ -7,10 +7,7 @@ import { toast } from "sonner";
 
 import { Button, ConfirmDialog } from "@/components/ui";
 import { clearSkillOverrides, deleteSkill } from "@/server/actions/skills";
-
-interface SkillDangerActionsProps {
-  skill: { id: string; name: string; overrideCount: number };
-}
+import type { SkillDangerActionsProps } from "@/components/skills/types/skill-detail";
 
 export function SkillDangerActions({ skill }: SkillDangerActionsProps) {
   const router = useRouter();

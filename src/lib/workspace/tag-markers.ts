@@ -13,14 +13,11 @@
  * newlines, etc.).
  */
 
-export const TAG_MARKER_PREFIX = "[laude:tag]";
+import type { TagMarker } from "./types/tag-markers";
 
-export interface TagMarker {
-  /** CSS selector path to the tagged element (built by the in-iframe tagger). */
-  selector: string;
-  /** Short preview of the element's textContent (truncated by the tagger). */
-  text: string;
-}
+export type { TagMarker };
+
+export const TAG_MARKER_PREFIX = "[laude:tag]";
 
 export function buildTagMarker(tag: TagMarker): string {
   return `${TAG_MARKER_PREFIX}${JSON.stringify(tag)}`;

@@ -17,22 +17,14 @@ import {
   isValidPngDataUrl,
   isVisibleCanvasOnDesign,
 } from "@/components/workspace/canvas/utils/capture-design-helpers";
+import { dataUrlToFile } from "@/components/workspace/canvas/utils/data-url";
+import type { CaptureDesignOptions } from "@/components/workspace/canvas/types/capture-design";
 
-export interface CaptureDesignOptions {
-  projectId: string;
-  designId: string;
-}
+export type { CaptureDesignOptions };
 
 const PIXEL_RATIO = 2;
 const VISIBLE_MOUNT_TIMEOUT_MS = 3_000;
-// 3s for the visible-iframe fast path (the iframe is already hot — if it
-// didn't appear in 3s, something else is wrong and we should fall back to
-// the hidden host rather than wait further).
 const HIDDEN_HOST_TIMEOUT_MS = 60_000;
-// 60s budget for the hidden host. The host now waits for Sandpack's "done"
-// event (up to 35s) before calling requestIframeScreenshot (25s), giving a
-// worst-case ceiling of ~60s for very slow first-run compiles. Warm repeat
-// captures complete in ~1-3s because `readyDesignIds` skips the wait.
 
 /**
  * Capture the live render of a design and upload it. Used by the agent's
@@ -88,9 +80,6 @@ async function captureDataUrl(
         fullPage: true,
       });
       if (!reply.error && reply.dataUrl) return reply.dataUrl;
-      // Fall through to the hidden path on failure — the visible iframe
-      // might be in the middle of a hot reload, in which case the hidden
-      // host's fresh mount has a better chance of succeeding.
     }
   }
 
@@ -99,9 +88,7 @@ async function captureDataUrl(
 
 /**
  * Look up the visible Sandpack iframe inside the `data-design-id`-stamped
- * canvas root. Returns `null` (rather than throwing) if it isn't there
- * yet — the orchestrator falls back to the hidden host in that case
- * rather than blocking on a slow visible mount.
+ * canvas root. Returns `null` (rather than throwing) if it isn't there yet
  */
 async function findVisibleIframe(
   designId: string,
@@ -149,25 +136,8 @@ async function captureViaHiddenHost(
     }
     return result.dataUrl;
   } finally {
-    // Always free the slot. Even if `waitForScreenshotResult` rejected on
-    // timeout, the host will eventually call `resolveRequest` for this id
-    // — `clearRequest` strips both pending state (if it matches) and any
-    // late-arriving result, so we don't leak.
     screenshotRequestStore.getState().clearRequest(requestId);
   }
-}
-
-function dataUrlToFile(dataUrl: string, name: string): File {
-  // fetch(dataUrl) is blocked by CSP (connect-src doesn't cover data: URIs).
-  // Decode the base64 payload directly instead.
-  const [header, base64] = dataUrl.split(",");
-  const mime = header.match(/:(.*?);/)?.[1] ?? "image/png";
-  const binary = atob(base64 ?? "");
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return new File([bytes], name, { type: mime });
 }
 
 function sleep(ms: number): Promise<void> {

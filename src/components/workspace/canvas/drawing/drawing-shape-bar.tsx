@@ -64,9 +64,7 @@ const KEY_TO_TOOL: Record<string, DrawTool> = SHAPE_TOOLS.reduce(
 
 /**
  * Floating shape bar pinned to the bottom-center of the design viewport.
- * Visible only while the workspace tool is `draw`. Owns all keyboard
- * shortcuts so they automatically tear down when the user exits Draw mode
- * (no orphaned `keydown` handlers swallowing Cmd-Z elsewhere).
+ * Visible only while the workspace tool is `draw`.
  */
 export function DrawingShapeBar({
   projectId,
@@ -87,11 +85,6 @@ export function DrawingShapeBar({
 
   const active = workspaceTool === "draw";
 
-  // Track the viewport's bounding box so the bar floats over the canvas
-  // and follows it when the user resizes the chat panel. We poll on rAF
-  // because there's no single event that catches every relevant layout
-  // change (resize observers don't fire on parent flex resizes from
-  // react-resizable-panels, etc).
   const [bounds, setBounds] = useState<DOMRect | null>(null);
   useEffect(() => {
     if (!active) {
@@ -115,10 +108,7 @@ export function DrawingShapeBar({
     return () => cancelAnimationFrame(raf);
   }, [active, viewportRef]);
 
-  // Keyboard shortcuts. Mounted at document level only while Draw mode is
-  // active so we don't conflict with the rest of the app. Inputs/textareas
-  // are exempted so the user can still type (e.g. in chat) without losing
-  // their drawing.
+  // Keyboard shortcuts. 
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
@@ -163,8 +153,6 @@ export function DrawingShapeBar({
         left: bounds.left + bounds.width / 2,
         top: bounds.top + bounds.height - 16,
         transform: "translate(-50%, -100%)",
-        // Higher than Tooltip / Popover (z-50) and the Sandpack iframe so the
-        // bar always stays in front of the canvas content.
         zIndex: 100,
       }}
       className="pointer-events-none"
@@ -183,9 +171,6 @@ export function DrawingShapeBar({
 
         <div className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
 
-        {/* Style popover — opens above the bar so it never obscures the
-            design while the bar itself stays put. Only visible on demand
-            (vs. the previous always-on right-side panel). */}
         <Popover>
           <Tooltip>
             <TooltipTrigger asChild>

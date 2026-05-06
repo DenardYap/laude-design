@@ -1,16 +1,7 @@
 import type { ReactNode } from "react";
 import type { FilterScope } from "@/stores/filters-store";
-import type { MineSkill, PublicSkill } from "@/components/skills/types/skills";
 
 export type PublicSortKey = "saves" | "likes" | "updated";
-
-export interface MySkillsTableProps {
-  skills: MineSkill[];
-}
-
-export interface PublicSkillsTableProps {
-  skills: PublicSkill[];
-}
 
 export interface EmptyMatchProps {
   query: string;

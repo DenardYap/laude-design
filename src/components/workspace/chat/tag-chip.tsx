@@ -48,9 +48,6 @@ export function TagChip({ tag, onRemove, className }: TagChipProps) {
     </span>
   );
 
-  // Tooltip is only useful when the visible label is truncated. The CSS
-  // selector itself is intentionally NOT shown — it's implementation detail
-  // the user doesn't care about, even though the model still receives it.
   if (!preview) return chip;
 
   return (

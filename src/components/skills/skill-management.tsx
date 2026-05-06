@@ -9,11 +9,6 @@ import type { OwnerSkill } from "@/components/skills/types/skills";
 
 export { SkillDangerActions } from "@/components/skills/skill-danger-actions";
 
-/**
- * Owner-only sharing panel: visibility + default-apply toggles only. Lives in
- * the right sidebar of the skill detail page. Destructive actions are
- * deliberately outside this card — see `SkillDangerActions`.
- */
 export function SkillSharingPanel({ skill }: { skill: OwnerSkill }) {
   const router = useRouter();
 

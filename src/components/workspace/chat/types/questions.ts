@@ -4,6 +4,15 @@ import type {
   ClarifyingQuestionSetDTO,
 } from "@/app/api/sessions/[sessionId]/questions/route";
 
+export interface QuestionCardProps {
+  children: React.ReactNode;
+}
+
+export interface QuestionHeaderProps {
+  rationale: string | null;
+  status: ClarifyingQuestionSetDTO["status"];
+}
+
 export interface InlineClarifyingQuestionsProps {
   sessionId: string;
   /**

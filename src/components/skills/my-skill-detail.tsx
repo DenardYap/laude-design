@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUpRight, Globe, Loader2, Lock, Save } from "lucide-react";
+import { Globe, Loader2, Lock, Save } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button, Input, Label, Pill, Textarea } from "@/components/ui";
+import { Button, Pill } from "@/components/ui";
 import { SkillUpdateSchema, type SkillUpdateInput } from "@/lib/validators";
 import { updateSkill } from "@/server/actions/skills";
 import { formatRelativeTime, formatSkillSize } from "@/lib/utils";
 import { SkillDetailHeader } from "@/components/skills/skill-detail-header";
 import { SkillSharingPanel, SkillDangerActions } from "@/components/skills/skill-management";
+import { SkillEditForm } from "@/components/skills/skill-edit-form";
+import { SkillClonedFromBanner } from "@/components/skills/skill-cloned-from-banner";
 import type { MySkillDetailProps } from "@/components/skills/types/skill-detail";
 
 export function MySkillDetail({ skill }: MySkillDetailProps) {
@@ -87,63 +88,10 @@ export function MySkillDetail({ skill }: MySkillDetailProps) {
         }
       />
 
-      {skill.clonedFrom ? (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-sunken/40 px-3 py-2 text-xs text-ink-muted">
-          <span>
-            Added from the public library — your copy is independent of the original.
-          </span>
-          <Link
-            href={`/skills/${skill.clonedFrom.id}`}
-            className="inline-flex items-center gap-1 font-medium text-ink hover:underline"
-          >
-            View original
-            <ArrowUpRight className="size-3" />
-          </Link>
-        </div>
-      ) : null}
+      {skill.clonedFrom ? <SkillClonedFromBanner originalId={skill.clonedFrom.id} /> : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <form
-          id={`skill-form-${skill.id}`}
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-4"
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor="skill-name">Name</Label>
-            <Input id="skill-name" {...form.register("name")} />
-            {form.formState.errors.name ? (
-              <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
-            ) : null}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="skill-description">
-              Description <span className="text-ink-subtle">(optional)</span>
-            </Label>
-            <Input
-              id="skill-description"
-              placeholder="What this skill teaches the agent"
-              {...form.register("description")}
-            />
-            {form.formState.errors.description ? (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.description.message}
-              </p>
-            ) : null}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="skill-content">Content</Label>
-            <Textarea
-              id="skill-content"
-              rows={22}
-              className="font-mono text-xs leading-relaxed"
-              spellCheck={false}
-              {...form.register("content")}
-            />
-            {form.formState.errors.content ? (
-              <p className="text-xs text-destructive">{form.formState.errors.content.message}</p>
-            ) : null}
-          </div>
-        </form>
+        <SkillEditForm skillId={skill.id} form={form} onSubmit={onSubmit} />
 
         <div className="space-y-3">
           <SkillSharingPanel

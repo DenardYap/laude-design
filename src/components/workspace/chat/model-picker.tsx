@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from 'react';
-import Link from "next/link";
-import { AlertTriangle, Check, ChevronDown, ExternalLink } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 
 import {
   Button,
@@ -10,7 +9,6 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandInput,
-  CommandItem,
   CommandList,
   Popover,
   PopoverContent,
@@ -19,33 +17,26 @@ import {
 import { cn } from "@/lib/utils";
 import {
   MODEL_OPTIONS,
-  PROVIDER_LABEL,
   PROVIDER_ORDER,
   resolveModelOption,
-} from "@/lib/workspace/types";
-import type { ModelOption, ModelProvider } from "@/lib/workspace/types";
+} from "@/lib/workspace/utils/models";
+import type { ModelOption, ModelProvider } from "@/lib/workspace/utils/models";
 import { resolveSessionModel, useWorkspaceStore } from "@/stores/workspace-store";
-import { useApiKeysStore, useConfiguredProviders } from "@/stores/api-keys-store";
+import { useConfiguredApiKeys } from "@/lib/api/api-keys";
+import { ProviderFilterRow } from "@/components/workspace/chat/provider-filter-row";
+import { ProviderHeading } from "@/components/workspace/chat/provider-heading";
+import { ModelRow } from "@/components/workspace/chat/model-row";
 import type {
   ModelPickerProps,
-  ModelRowProps,
   ProviderFilter,
-  ProviderFilterRowProps,
-  ProviderHeadingProps,
 } from "@/components/workspace/chat/types/model-picker";
-
-const PROVIDER_FILTERS: ReadonlyArray<{ value: ProviderFilter; label: string }> = [
-  { value: "ALL", label: "All" },
-  ...PROVIDER_ORDER.map((p) => ({ value: p, label: PROVIDER_LABEL[p] })),
-];
 
 export function ModelPicker({ projectId, sessionId }: ModelPickerProps) {
   const selected = useWorkspaceStore(
     (s) => resolveSessionModel(sessionId, projectId, s),
   );
   const setSelected = useWorkspaceStore((s) => s.setSelectedModel);
-  const configured = useConfiguredProviders();
-  const getMasked = useApiKeysStore((s) => s.getMasked);
+  const { configured, lastFourByProvider } = useConfiguredApiKeys();
 
   const [open, setOpen] = useState(false);
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>("ALL");
@@ -104,7 +95,7 @@ export function ModelPicker({ projectId, sessionId }: ModelPickerProps) {
             <CommandEmpty>No models match.</CommandEmpty>
             {groups.map(({ provider, options }) => {
               const ok = configured.has(provider);
-              const masked = getMasked(provider);
+              const lastFour = lastFourByProvider.get(provider);
               return (
                 <CommandGroup
                   key={provider}
@@ -112,7 +103,7 @@ export function ModelPicker({ projectId, sessionId }: ModelPickerProps) {
                     <ProviderHeading
                       provider={provider}
                       configured={ok}
-                      lastFour={masked?.lastFour}
+                      lastFour={lastFour}
                     />
                   }
                 >
@@ -132,89 +123,5 @@ export function ModelPicker({ projectId, sessionId }: ModelPickerProps) {
         </Command>
       </PopoverContent>
     </Popover>
-  );
-}
-
-
-function ProviderFilterRow({ value, onChange }: ProviderFilterRowProps) {
-  return (
-    <div className="flex items-center gap-1 overflow-x-auto border-b border-border px-2 py-1.5">
-      {PROVIDER_FILTERS.map((f) => {
-        const active = value === f.value;
-        return (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => onChange(f.value)}
-            className={cn(
-              "inline-flex h-6 shrink-0 items-center rounded-full border px-2.5 text-[11px] font-medium transition-colors",
-              active
-                ? "border-transparent bg-brand text-brand-foreground"
-                : "border-border bg-surface text-ink-muted hover:bg-surface-sunken hover:text-ink",
-            )}
-          >
-            {f.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-
-function ProviderHeading({ provider, configured, lastFour }: ProviderHeadingProps) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span>{PROVIDER_LABEL[provider]}</span>
-      {configured ? (
-        <span className="font-mono text-[10px] text-ink-subtle">
-          •••• {lastFour}
-        </span>
-      ) : (
-        <Link
-          href={`/api-keys?provider=${provider}`}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex items-center gap-1 text-warning hover:underline"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <AlertTriangle className="size-3" />
-          Configure
-          <ExternalLink className="size-2.5 opacity-70" />
-        </Link>
-      )}
-    </div>
-  );
-}
-
-
-function ModelRow({ model, active, disabled, onSelect }: ModelRowProps) {
-  // cmdk filters by `value`. Include label, modelId, provider name, and
-  // description so a search like "haiku", "opus", "fast", or even the raw
-  // model id all match.
-  const value = `${model.label} ${model.modelId} ${PROVIDER_LABEL[model.provider]} ${model.description ?? ""}`;
-  return (
-    <CommandItem
-      value={value}
-      disabled={disabled}
-      onSelect={onSelect}
-      className="flex cursor-pointer items-start justify-between gap-2"
-    >
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-sm">{model.label}</span>
-        {model.description ? (
-          <span className="truncate text-[11px] text-ink-muted">
-            {model.description}
-          </span>
-        ) : (
-          <span className="truncate font-mono text-[10px] text-ink-subtle">
-            {model.modelId}
-          </span>
-        )}
-      </span>
-      {active ? (
-        <Check className="mt-0.5 size-3.5 shrink-0 text-brand-foreground" />
-      ) : null}
-    </CommandItem>
   );
 }

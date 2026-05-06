@@ -1,7 +1,3 @@
-// Barrel of every UI primitive. Always import primitives via this file:
-//   import { Button, Card } from "@/components/ui";
-// Never reach into the individual files. New primitives must be added here.
-
 export { Alert, AlertTitle, AlertDescription } from "./alert";
 export { Avatar, AvatarImage, AvatarFallback } from "./avatar";
 export { BrushMark } from "./brush-mark";

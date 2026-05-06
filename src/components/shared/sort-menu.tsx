@@ -15,14 +15,6 @@ import type { SortMenuProps } from "@/components/shared/types/sort-menu";
 
 export type { SortOption } from "@/components/shared/types/sort-menu";
 
-/**
- * Single-select sort dropdown that mirrors the look of `MultiDimensionFilter`
- * so they sit together in the same toolbar without one feeling out of place.
- *
- * Uses `DropdownMenu` (not `Command`) because sort is a tiny, finite,
- * non-searchable list — pulling in a search input would add noise without
- * paying for itself.
- */
 export function SortMenu<TValue extends string>({
   value,
   onChange,

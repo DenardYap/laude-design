@@ -23,12 +23,6 @@ const AvatarImage = forwardRef<
   ElementRef<typeof AvatarPrimitive.Image>,
   ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
 >(({ className, referrerPolicy = "no-referrer", ...props }, ref) => (
-  // Google's `lh3.googleusercontent.com` (and some GitHub avatar variants)
-  // reject requests when the browser sends a referrer the CDN doesn't like,
-  // which silently falls through to the AvatarFallback. `no-referrer` is the
-  // canonical fix for cross-origin avatar URLs and is safe — these images
-  // are public and don't need referrer-based auth. Callers can still
-  // override via prop.
   <AvatarPrimitive.Image
     ref={ref}
     referrerPolicy={referrerPolicy}

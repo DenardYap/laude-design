@@ -1,4 +1,7 @@
 import type { ReactNode } from "react";
+import type { UseFormReturn } from "react-hook-form";
+
+import type { SkillUpdateInput } from "@/lib/validators";
 
 export interface SkillDetailHeaderProps {
   title: string;
@@ -65,4 +68,14 @@ export interface PublicSkillActionsProps {
 
 export interface ClonedFromBannerProps {
   clonedFrom: { id: string; name: string };
+}
+
+export interface SkillDangerActionsProps {
+  skill: { id: string; name: string; overrideCount: number };
+}
+
+export interface SkillEditFormProps {
+  skillId: string;
+  form: UseFormReturn<SkillUpdateInput>;
+  onSubmit: (values: SkillUpdateInput) => void;
 }

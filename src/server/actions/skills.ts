@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { assertWithinLimit } from "@/lib/limits";
 import {
   SkillSchema,
   SkillUpdateSchema,
@@ -13,6 +14,7 @@ import {
 
 export async function uploadSkill(input: SkillInput) {
   const user = await requireUser();
+  await assertWithinLimit(user.id, "skills");
   const data = SkillSchema.parse(input);
   const created = await db.skill.create({
     data: {
@@ -200,6 +202,12 @@ export async function addPublicSkillToLibrary(
     select: { id: true },
   });
   if (existingClone) return { id: existingClone.id, alreadyAdded: true };
+
+  // Cloning creates a new owned Skill row, so it counts toward the per-user
+  // skills cap exactly like `uploadSkill`. Checked AFTER the
+  // `existingClone` short-circuit so re-saves of an already-cloned public
+  // skill (a no-op) don't get blocked when the user is at the limit.
+  await assertWithinLimit(user.id, "skills");
 
   const created = await db.$transaction(async (tx) => {
     const copy = await tx.skill.create({

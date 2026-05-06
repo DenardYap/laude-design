@@ -19,14 +19,7 @@ import { hitShape } from "./shapes/hit-test";
 import type { DrawingOverlayProps, Point } from "@/components/workspace/canvas/drawing/types/drawing-overlay";
 
 /**
- * SVG layer that renders all committed shapes plus the in-progress draft
- * stroke. Mounts inside the design's `captureRef` wrapper so drawings scroll
- * with the canvas and are baked into html-to-image captures.
- *
- * Pointer-event behavior:
- *  - tool === "none"  → pointer-events: none (iframe stays interactive).
- *  - tool === "eraser" → cursor:cell, hit-tests every shape on move.
- *  - any shape tool   → cursor:crosshair, draws a draft until pointerup.
+ * SVG layer that renders all committed shapes plus the in-progress draft stroke.
  */
 export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
   const tool = useDrawingStore(selectTool(projectId));
@@ -34,29 +27,16 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
   const shapes = useDrawingStore(selectShapes(projectId));
   const commit = useDrawingStore((s) => s.commit);
   const eraseAt = useDrawingStore((s) => s.eraseAt);
-  // captureRef has `transform: scale(zoom)`, so getBoundingClientRect on the
-  // SVG returns visual (post-transform) dimensions = CSS × zoom. Divide by
-  // zoom to convert back to iframe CSS pixels where shapes are stored.
   const zoom = useWorkspaceStore((s) => s.zoom);
 
   const svgRef = useRef<SVGSVGElement>(null);
-  // Draft shape lives in local state so per-frame mousemove updates don't
-  // touch the global store (which would push a history snapshot per pixel).
   const [draft, setDraft] = useState<Shape | null>(null);
   const draftRef = useRef<Shape | null>(null);
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
 
-  // Track erase state so we can group an eraser stroke into one history entry.
   const erasingRef = useRef(false);
-
-  // The overlay is mounted permanently inside the design so previously-drawn
-  // shapes stay visible even after the user leaves Draw mode. But it must
-  // only intercept pointer/wheel events while Draw mode is actually active —
-  // otherwise the iframe stays click-through-blocked and the cursor sticks
-  // on the crosshair after exit. Gate `interactive` on BOTH the workspace
-  // tool ("draw") and the per-project drawing tool (anything but "none").
   const workspaceTool = useWorkspaceStore((s) => s.tool);
   const interactive = workspaceTool === "draw" && tool !== "none";
 
@@ -197,9 +177,6 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
     if (!current) return;
     setDraft(null);
 
-    // Normalize: drag-from-bottom-right yields negative w/h. Also drop
-    // accidental click-without-drag shapes so the canvas doesn't fill with
-    // invisible 0×0 boxes the user can't even erase.
     const normalized = match(current)
       .with({ type: P.union("rectangle", "diamond", "ellipse") }, (s) => {
         const x = s.w < 0 ? s.x + s.w : s.x;
@@ -236,11 +213,6 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
   // postMessage so its in-iframe relay (see sandpack-files.ts) can scroll
   // its own document. We don't preventDefault — that lets the parent
   // overflow-auto scroll too when the canvas is zoomed past 100%.
-  //
-  // ⌘/ctrl + wheel is the browser's pinch-zoom gesture though, and the
-  // viewport-level handler in `useCanvasWheelZoom` consumes it to step the
-  // canvas zoom. We bail out here so we don't simultaneously scroll the
-  // iframe while the user is trying to zoom.
   const handleWheel = useCallback(
     (e: WheelEvent<SVGSVGElement>) => {
       if (!interactive) return;
@@ -268,8 +240,6 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
     .with("eraser", () => "cell" as const)
     .otherwise(() => "crosshair" as const);
 
-  // Render committed shapes + the live draft on top so the user sees what
-  // they're drawing in real time.
   const drawnCommitted = useMemo(() => shapes.map(drawShape), [shapes]);
   const drawnDraft = useMemo(
     () => (draft ? drawShape(draft) : null),
@@ -287,15 +257,7 @@ export function DrawingOverlay({ projectId, className }: DrawingOverlayProps) {
         height: "100%",
         pointerEvents: interactive ? "auto" : "none",
         cursor,
-        // Block native pan so single-finger draw on touch devices doesn't
-        // turn into a scroll gesture. Trackpad/mouse scrolling instead
-        // arrives as wheel events, which we forward to the iframe in
-        // onWheel below.
         touchAction: interactive ? "none" : undefined,
-        // Sit above the Sandpack iframe (which doesn't carry an explicit
-        // z-index but creates its own paint layer) so the drawn marks are
-        // always on top of the live design. The floating shape bar uses
-        // z-index 100 so it stays above the overlay too.
         zIndex: 50,
       }}
       onPointerDown={handlePointerDown}

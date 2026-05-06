@@ -1,8 +1,11 @@
 import { ShieldCheck } from "lucide-react";
 
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { PageHeader } from "@/components/ui";
 import { ApiKeysList } from "@/components/api-keys/api-keys-list";
 import type { ProviderConfig } from "@/components/api-keys/types/api-keys";
+import type { AiProvider } from "@/lib/validators";
 import { AnthropicIcon } from "@/components/api-keys/anthropic-icon";
 import { GoogleIcon } from "@/components/api-keys/google-icon";
 import { OpenAIIcon } from "@/components/api-keys/openai-icon";
@@ -36,32 +39,48 @@ const PROVIDERS: ProviderConfig[] = [
   },
 ];
 
-export default function ApiKeysPage() {
+export default async function ApiKeysPage() {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  // Cheap server-side cleanup before fetch: delete any of THIS user's rows
+  // that have aged out. Mirrors the same sweep `/api/api-keys` does so the
+  // page never momentarily shows a key the chat route would reject.
+  if (userId) {
+    await db.apiKey.deleteMany({
+      where: { userId, expiresAt: { lte: new Date() } },
+    });
+  }
+
+  // Pull only the public-facing fields. Ciphertext is intentionally excluded
+  // from this query — there is no scenario where the page itself needs it.
+  const rows = userId
+    ? await db.apiKey.findMany({
+        where: { userId },
+        select: { provider: true, lastFour: true, expiresAt: true },
+      })
+    : [];
+
+  const existingByProvider = new Map<
+    AiProvider,
+    { lastFour: string; expiresAt: string | null }
+  >(
+    rows.map((r) => [
+      r.provider as AiProvider,
+      {
+        lastFour: r.lastFour,
+        expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
+      },
+    ]),
+  );
+
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
       <PageHeader
         title="Configure API"
         description="Bring your own keys for the LLMs you want to use."
       />
-      <p className="flex items-start gap-1.5 text-xs text-ink-muted">
-        <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-success" />
-        <span>
-          Keys are stored in this browser and sent to our server only when processing your AI
-          requests — we never write them to our database (
-          <a
-            href="https://github.com/DenardYap/laude-design/blob/main/prisma/schema.prisma"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-ink"
-          >
-            see source
-          </a>
-          ).{" "}
-          <strong>Use a dedicated key per provider</strong> and revoke it on the provider&apos;s
-          dashboard if it may be compromised.
-        </span>
-      </p>
-      <ApiKeysList providers={PROVIDERS} />
+      <ApiKeysList providers={PROVIDERS} existingByProvider={existingByProvider} />
     </div>
   );
 }

@@ -1,10 +1,7 @@
 "use client";
 
 import { useRef, useState } from 'react';
-import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   ContextMenu,
@@ -18,18 +15,17 @@ import {
 import { InlineRenameInput } from "@/components/shared/inline-rename-input";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-import { renameSession } from "@/server/actions/sessions";
+import { useRenameSession } from "@/components/workspace/chat/hooks/use-rename-session";
 import type { SessionTabProps } from "@/components/workspace/chat/types/session";
 
 export type { SessionTabProps };
 
 export function SessionTab({
   session,
+  projectId,
   active,
   onSelect,
   isPending,
-  onClose,
-  onDelete,
   isDragging = false,
   dragOffset = 0,
   tabRef,
@@ -37,24 +33,13 @@ export function SessionTab({
 }: SessionTabProps) {
   const [renaming, setRenaming] = useState(false);
   const renameTriggeredRef = useRef(false);
-  const router = useRouter();
   const isStreaming = useWorkspaceStore(
     (s) => Boolean(s.streamingSessionIds[session.id]),
   );
+  const closeOrConfirmTab = useWorkspaceStore((s) => s.closeOrConfirmSessionTab);
+  const requestDelete = useWorkspaceStore((s) => s.requestSessionDelete);
 
-  const rename = useMutation({
-    mutationFn: async (title: string) => {
-      await renameSession(session.id, title);
-      return title.trim().slice(0, 80) || "Untitled";
-    },
-    onSuccess: (newTitle) => {
-      setRenaming(false);
-      toast.success(`Renamed session to "${newTitle}"`);
-      router.refresh();
-    },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Failed to rename"),
-  });
+  const rename = useRenameSession(session, { onSuccess: () => setRenaming(false) });
 
   const tabClasses = cn(
     "group inline-flex h-7 max-w-[160px] shrink-0 cursor-pointer items-center gap-1 rounded-md pl-2 pr-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -112,14 +97,14 @@ export function SessionTab({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
-                  aria-label="Agent is working"
+                  aria-label="Laude is working"
                   className="relative inline-flex size-1.5 shrink-0 items-center justify-center"
                 >
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand opacity-60" />
                   <span className="relative inline-flex size-1.5 rounded-full bg-brand" />
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Agent is working</TooltipContent>
+              <TooltipContent side="bottom">Laude is working</TooltipContent>
             </Tooltip>
           ) : null}
           {renaming ? (
@@ -144,7 +129,7 @@ export function SessionTab({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onClose();
+              closeOrConfirmTab(projectId, session.id);
             }}
             aria-label={`Close ${session.title}`}
             className={cn(
@@ -174,13 +159,13 @@ export function SessionTab({
         >
           Rename
         </ContextMenuItem>
-        <ContextMenuItem onSelect={onClose}>
+        <ContextMenuItem onSelect={() => closeOrConfirmTab(projectId, session.id)}>
           <X className="size-3.5" />
           Close tab
         </ContextMenuItem>
         <ContextMenuItem
           className="text-destructive focus:text-destructive"
-          onSelect={onDelete}
+          onSelect={() => requestDelete(session.id)}
         >
           Delete session
         </ContextMenuItem>

@@ -7,7 +7,6 @@ export const SKILL_SIZE_OPTIONS: Array<{ value: SkillSizeBucket; label: string }
   { value: "large", label: "Large (>5k)" },
 ];
 
-/** Bucket a skill into a coarse token range from its raw character count. */
 export function bucketBySize(charCount: number): SkillSizeBucket {
   const tokens = estimateTokens(charCount);
   if (tokens < 1_000) return "small";
@@ -15,12 +14,6 @@ export function bucketBySize(charCount: number): SkillSizeBucket {
   return "large";
 }
 
-/**
- * Format a char count as a compact, scannable *token estimate* string for
- * tight row layouts. Examples: 800 chars → "200" (tokens), 4_800 chars →
- * "1.2k", 100_000 chars → "25k". The returned value is unitless because the
- * column header carries the unit ("Tokens").
- */
 export function formatTokens(charCount: number): string {
   const tokens = estimateTokens(charCount);
   if (tokens < 1_000) return `${tokens}`;

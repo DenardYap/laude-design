@@ -1,60 +1,80 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-import { EmptyState, SkillMark } from "@/components/ui";
+import { EmptyState, Skeleton, SkillMark } from "@/components/ui";
 import { SortMenu } from "@/components/shared/sort-menu";
-import { TablePagination, usePagination } from "@/components/shared/pagination";
+import { TablePagination } from "@/components/shared/pagination";
 import { useScopeQuery, useScopeDimension } from "@/stores/filters-store";
 import { PublicSkillRow } from "@/components/skills/public-skill-row";
 import { SkillTableHeader } from "@/components/skills/skill-table-header";
 import { SkillsFilters } from "@/components/skills/skills-filters";
 import { hasActiveFilters } from "@/components/skills/utils/skills-filters";
-import { bucketBySize } from "@/components/skills/utils/skill-size";
-import { sortPublicSkills, SORT_OPTIONS } from "@/components/skills/utils/public-skills";
+import { SORT_OPTIONS } from "@/components/skills/utils/public-skills";
 import { SkillUploader } from "@/components/skills/skill-uploader";
 import { EmptyMatch } from "@/components/skills/empty-match";
-import type { PublicSkillsTableProps, PublicSortKey } from "@/components/skills/types/skill-table";
-import type { SkillSizeBucket } from "@/components/skills/types/skills";
+import { useDebounce } from "@/components/shared/hooks/use-debounce";
+import { fetchPublicSkills, skillKeys } from "@/lib/api/skills";
+import type { PublicSortKey } from "@/components/skills/types/skill-table";
 
 const COLUMNS = ["Name", "Author", "Saves", "Likes", "Tokens", "Updated"];
 const PAGE_SIZE = 25;
 
-export function PublicSkillsTable({ skills }: PublicSkillsTableProps) {
+export function PublicSkillsTable() {
   const { query, setQuery } = useScopeQuery("skills:public");
   const { values: sizeValues, reset: resetSize } = useScopeDimension("skills:public", "size");
   const { values: authorValues, reset: resetAuthor } = useScopeDimension(
     "skills:public",
     "author",
   );
-  // Sort lives in local state — it's a per-tab UI preference that doesn't
-  // need to round-trip through the filters store.
   const [sortKey, setSortKey] = useState<PublicSortKey>("saves");
+  const [page, setPage] = useState(1);
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const sizes = new Set(sizeValues as SkillSizeBucket[]);
-    const authors = new Set(authorValues);
-    const filtered = skills.filter((s) => {
-      if (q) {
-        const inName = s.name.toLowerCase().includes(q);
-        const inDesc = s.description?.toLowerCase().includes(q) ?? false;
-        const inAuthor = s.authorName?.toLowerCase().includes(q) ?? false;
-        if (!inName && !inDesc && !inAuthor) return false;
-      }
-      if (sizes.size > 0 && !sizes.has(bucketBySize(s.charCount))) return false;
-      if (authors.size > 0 && !authors.has(s.isMine ? "me" : "others")) return false;
-      return true;
-    });
-    return sortPublicSkills(filtered, sortKey);
-  }, [skills, query, sizeValues, authorValues, sortKey]);
+  const debouncedQuery = useDebounce(query, 300);
 
-  const { page, setPage, pageItems, total, totalPages, rangeStart, rangeEnd } = usePagination(
-    visible,
-    PAGE_SIZE,
-  );
+  // Reset to page 1 whenever filters or sort change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, sizeValues, authorValues, sortKey]);
 
-  if (skills.length === 0) {
+  const params = {
+    page,
+    pageSize: PAGE_SIZE,
+    q: debouncedQuery,
+    size: sizeValues as string[],
+    author: authorValues as string[],
+    sort: sortKey,
+  };
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: skillKeys.public(params),
+    queryFn: () => fetchPublicSkills(params),
+    // Keep the previous page's data visible while the next page loads
+    placeholderData: (prev) => prev,
+  });
+
+  const filtersActive = hasActiveFilters(query, [sizeValues, authorValues]);
+
+  if (isLoading && !data) {
+    return <TableSkeleton />;
+  }
+
+  if (isError) {
+    return (
+      <p className="py-10 text-center text-sm text-ink-muted">
+        Failed to load skills. Please refresh and try again.
+      </p>
+    );
+  }
+
+  const skills = data?.skills ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 1;
+  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, total);
+
+  if (total === 0 && !filtersActive && !isLoading) {
     return (
       <EmptyState
         icon={<SkillMark className="size-10" />}
@@ -65,10 +85,13 @@ export function PublicSkillsTable({ skills }: PublicSkillsTableProps) {
     );
   }
 
-  const filtersActive = hasActiveFilters(query, [sizeValues, authorValues]);
-
   return (
     <div className="space-y-3">
+      <p className="text-xs text-ink-muted">
+        ⚠️ Beware of malicious skill files — always double-check the skill&apos;s content before
+        saving and using it.
+      </p>
+
       <SkillsFilters
         scope="skills:public"
         searchPlaceholder="Search public skills..."
@@ -76,7 +99,7 @@ export function PublicSkillsTable({ skills }: PublicSkillsTableProps) {
         trailing={<SortMenu value={sortKey} onChange={setSortKey} options={SORT_OPTIONS} />}
       />
 
-      {visible.length === 0 ? (
+      {skills.length === 0 ? (
         <EmptyMatch
           query={query}
           filtersActive={filtersActive}
@@ -93,7 +116,7 @@ export function PublicSkillsTable({ skills }: PublicSkillsTableProps) {
             style={{ gridTemplateColumns: "minmax(0,1fr) auto auto auto auto auto" }}
           >
             <SkillTableHeader columns={COLUMNS} colSpan={6} />
-            {pageItems.map((s, i) => (
+            {skills.map((s, i) => (
               <PublicSkillRow key={s.id} skill={s} zebra={i % 2 === 1} />
             ))}
           </ul>
@@ -109,6 +132,23 @@ export function PublicSkillsTable({ skills }: PublicSkillsTableProps) {
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-9 flex-1 max-w-xs" />
+        <Skeleton className="h-9 w-20" />
+        <Skeleton className="ml-auto h-9 w-24" />
+      </div>
+      <div className="space-y-px overflow-hidden rounded-lg border border-border bg-card">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full rounded-none" />
+        ))}
+      </div>
     </div>
   );
 }

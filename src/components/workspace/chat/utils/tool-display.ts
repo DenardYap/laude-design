@@ -14,16 +14,10 @@ import {
   Tag,
   Trash2,
   Wrench,
-  type LucideIcon,
 } from "lucide-react";
+import type { ToolDisplay } from "@/components/workspace/chat/types/tool-display";
 
-export interface ToolDisplay {
-  /** Present-progressive label shown while the tool is still running. */
-  activeLabel: string;
-  /** Past-tense label shown once the tool has finished (success or stop). */
-  pastLabel: string;
-  icon: LucideIcon;
-}
+export type { ToolDisplay };
 
 const TOOL_DISPLAY: Record<string, ToolDisplay> = {
   createDesign: {

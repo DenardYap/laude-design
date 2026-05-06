@@ -1,24 +1,24 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-import { Button, EmptyState, SkillMark } from "@/components/ui";
-import { TablePagination, usePagination } from "@/components/shared/pagination";
+import { EmptyState, Skeleton, SkillMark } from "@/components/ui";
+import { TablePagination } from "@/components/shared/pagination";
 import { useScopeQuery, useScopeDimension } from "@/stores/filters-store";
 import { MineSkillRow } from "@/components/skills/mine-skill-row";
 import { SkillTableHeader } from "@/components/skills/skill-table-header";
 import { SkillsFilters } from "@/components/skills/skills-filters";
 import { hasActiveFilters } from "@/components/skills/utils/skills-filters";
-import { bucketBySize } from "@/components/skills/utils/skill-size";
 import { SkillUploader } from "@/components/skills/skill-uploader";
 import { EmptyMatch } from "@/components/skills/empty-match";
-import type { MySkillsTableProps } from "@/components/skills/types/skill-table";
-import type { SkillSizeBucket } from "@/components/skills/types/skills";
+import { useDebounce } from "@/components/shared/hooks/use-debounce";
+import { fetchMySkills, skillKeys } from "@/lib/api/skills";
 
 const COLUMNS = ["Name", "Author", "Visibility", "Default", "Tokens", "Updated"];
 const PAGE_SIZE = 25;
 
-export function MySkillsTable({ skills }: MySkillsTableProps) {
+export function MySkillsTable() {
   const { query, setQuery } = useScopeQuery("skills:mine");
   const { values: visibilityValues, reset: resetVisibility } = useScopeDimension(
     "skills:mine",
@@ -33,34 +33,57 @@ export function MySkillsTable({ skills }: MySkillsTableProps) {
     "skills:mine",
     "author",
   );
+  const [page, setPage] = useState(1);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const vis = new Set(visibilityValues);
-    const sizes = new Set(sizeValues as SkillSizeBucket[]);
-    const defaults = new Set(defaultValues);
-    const authors = new Set(authorValues);
-    return skills.filter((s) => {
-      if (q) {
-        const inName = s.name.toLowerCase().includes(q);
-        const inDesc = s.description?.toLowerCase().includes(q) ?? false;
-        const inAuthor = s.authorName?.toLowerCase().includes(q) ?? false;
-        if (!inName && !inDesc && !inAuthor) return false;
-      }
-      if (vis.size > 0 && !vis.has(s.isPublic ? "public" : "private")) return false;
-      if (sizes.size > 0 && !sizes.has(bucketBySize(s.charCount))) return false;
-      if (defaults.size > 0 && !defaults.has(s.appliedByDefault ? "on" : "off")) return false;
-      if (authors.size > 0 && !authors.has(s.isClone ? "others" : "me")) return false;
-      return true;
-    });
-  }, [skills, query, visibilityValues, sizeValues, defaultValues, authorValues]);
+  const debouncedQuery = useDebounce(query, 300);
 
-  const { page, setPage, pageItems, total, totalPages, rangeStart, rangeEnd } = usePagination(
-    filtered,
-    PAGE_SIZE,
-  );
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, visibilityValues, sizeValues, defaultValues, authorValues]);
 
-  if (skills.length === 0) {
+  const params = {
+    page,
+    pageSize: PAGE_SIZE,
+    q: debouncedQuery,
+    visibility: visibilityValues as string[],
+    size: sizeValues as string[],
+    default: defaultValues as string[],
+    author: authorValues as string[],
+  };
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: skillKeys.mine(params),
+    queryFn: () => fetchMySkills(params),
+    placeholderData: (prev) => prev,
+  });
+
+  const filtersActive = hasActiveFilters(query, [
+    visibilityValues,
+    sizeValues,
+    defaultValues,
+    authorValues,
+  ]);
+
+  if (isLoading && !data) {
+    return <TableSkeleton />;
+  }
+
+  if (isError) {
+    return (
+      <p className="py-10 text-center text-sm text-ink-muted">
+        Failed to load skills. Please refresh and try again.
+      </p>
+    );
+  }
+
+  const skills = data?.skills ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 1;
+  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, total);
+
+  if (total === 0 && !filtersActive && !isLoading) {
     return (
       <EmptyState
         icon={<SkillMark className="size-10" />}
@@ -70,13 +93,6 @@ export function MySkillsTable({ skills }: MySkillsTableProps) {
       />
     );
   }
-
-  const filtersActive = hasActiveFilters(query, [
-    visibilityValues,
-    sizeValues,
-    defaultValues,
-    authorValues,
-  ]);
 
   return (
     <div className="space-y-3">
@@ -88,7 +104,7 @@ export function MySkillsTable({ skills }: MySkillsTableProps) {
         showAuthor
       />
 
-      {filtered.length === 0 ? (
+      {skills.length === 0 ? (
         <EmptyMatch
           query={query}
           filtersActive={filtersActive}
@@ -107,7 +123,7 @@ export function MySkillsTable({ skills }: MySkillsTableProps) {
             style={{ gridTemplateColumns: "minmax(0,1fr) auto auto auto auto auto" }}
           >
             <SkillTableHeader columns={COLUMNS} colSpan={6} />
-            {pageItems.map((s, i) => (
+            {skills.map((s, i) => (
               <MineSkillRow key={s.id} skill={s} zebra={i % 2 === 1} />
             ))}
           </ul>
@@ -123,6 +139,22 @@ export function MySkillsTable({ skills }: MySkillsTableProps) {
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-9 flex-1 max-w-xs" />
+        <Skeleton className="h-9 w-20" />
+      </div>
+      <div className="space-y-px overflow-hidden rounded-lg border border-border bg-card">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full rounded-none" />
+        ))}
+      </div>
     </div>
   );
 }

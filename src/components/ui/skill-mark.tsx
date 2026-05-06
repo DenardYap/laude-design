@@ -1,12 +1,6 @@
 import type { SVGProps } from 'react';
 import { cn } from "@/lib/utils";
 
-/**
- * Brand glyph: a lightbulb with an inscribed fountain-pen nib. Signifies
- * "skills" — knowledge (bulb) authored as text snippets (pen). Used as the
- * empty-state mark for the Skills surfaces. Inherits color via `currentColor`;
- * size via Tailwind size-* utilities (defaults to size-4).
- */
 export function SkillMark({
   className,
   ...props

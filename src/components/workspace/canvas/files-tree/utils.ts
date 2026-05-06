@@ -37,6 +37,29 @@ export function collectDescendants(
 }
 
 /**
+ * Builds a human-readable delete-confirmation description that calls out the
+ * exact blast radius ("3 files and 2 subfolders") so users see what they're
+ * about to destroy before they confirm.
+ */
+export function buildDeleteDescription(
+  name: string,
+  { designCount, folderCount }: ReturnType<typeof collectDescendants>,
+): string {
+  const parts: string[] = [];
+  if (designCount > 0) {
+    parts.push(`${designCount} ${designCount === 1 ? "file" : "files"}`);
+  }
+  if (folderCount > 0) {
+    parts.push(`${folderCount} ${folderCount === 1 ? "subfolder" : "subfolders"}`);
+  }
+  const inside = parts.length === 0 ? "" : parts.length === 1 ? parts[0] : parts.join(" and ");
+  if (!inside) {
+    return `"${name}" will be permanently deleted. This cannot be undone.`;
+  }
+  return `This will permanently delete ${inside} in "${name}". Are you sure?`;
+}
+
+/**
  * Returns true if `candidateId` is in the ancestor chain of `folderId`
  * (i.e. moving `candidateId` into `folderId` would create a cycle).
  * Walks parent pointers upwards with a visited guard to stop on the rare

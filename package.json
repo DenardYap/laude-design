@@ -1,5 +1,5 @@
 {
-  "name": "claude-design-clone",
+  "name": "laude-design",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,10 +7,12 @@
     "dev:next": "next dev",
     "db:up": "docker compose up -d --wait db",
     "db:down": "docker compose down",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "prisma generate && next build",
+    "db:migrate": "prisma migrate deploy",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "security:audit": "node scripts/security-audit.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",

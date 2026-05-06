@@ -1,10 +1,5 @@
 import type { DesignDTO, FolderDTO } from "@/lib/workspace/types";
 
-/**
- * Replace anything that wouldn't survive on a real filesystem (Windows,
- * macOS, Linux). We're aiming for "looks the same as the user wrote it"
- * while still being safe to extract anywhere.
- */
 function sanitizeSegment(name: string, fallback: string): string {
   const cleaned = name
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-")
@@ -13,10 +8,6 @@ function sanitizeSegment(name: string, fallback: string): string {
   return cleaned || fallback;
 }
 
-/**
- * Strip leading slashes from a design file path so it joins cleanly under a
- * design folder inside the zip.
- */
 function normalizeFilePath(path: string): string {
   return path.replace(/^\/+/, "");
 }

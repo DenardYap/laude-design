@@ -6,7 +6,7 @@ import {
   PROVIDER_ORDER,
   getContextWindow,
   resolveModelOption,
-} from "./types";
+} from "./models";
 
 describe("getContextWindow", () => {
   it("returns the correct context window for Claude Sonnet 4.6", () => {

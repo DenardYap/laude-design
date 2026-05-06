@@ -4,7 +4,7 @@ import { LegalSection } from "../_components/legal-section";
 
 export const metadata = { title: "Terms of Service · Laude Design" };
 
-const LAST_UPDATED = "May 2, 2026";
+const LAST_UPDATED = "May 5, 2026";
 
 export default function TermsPage() {
   return (
@@ -55,7 +55,10 @@ export default function TermsPage() {
           Laude Design does not provide model inference. When you add an API
           key, you authorize Laude Design to send your prompts, files, and
           Skills to the corresponding provider on your behalf so the agent can
-          respond.
+          respond. Keys are encrypted at rest with AES-256-GCM before being
+          stored &mdash; see our{" "}
+          <Link href="/privacy#api-keys-and-encryption">Privacy Policy</Link>{" "}
+          for details on how key material is handled.
         </p>
         <ul>
           <li>
@@ -115,7 +118,7 @@ export default function TermsPage() {
           </li>
           <li>
             Attempt to break, abuse, or reverse engineer the security of the
-            service, including the systems that process API keys;
+            service, including the systems that store encrypted API keys;
           </li>
           <li>
             Run automated scraping, denial-of-service attacks, or use the

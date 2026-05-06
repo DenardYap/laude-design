@@ -64,10 +64,6 @@ export function GlobalCommandPalette({ projects }: GlobalCommandPaletteProps) {
     return map;
   }, [projects]);
 
-  // Resolve raw recents → display rows. Stale entries (deleted projects,
-  // pages no longer in NAV_PAGES) are filtered out so the palette never
-  // shows broken links. Capped at 5 — older history stays in the store but
-  // doesn't surface here.
   const recentRows = useMemo<RecentRow[]>(() => {
     const rows: RecentRow[] = [];
     for (const r of recents) {
@@ -107,8 +103,6 @@ export function GlobalCommandPalette({ projects }: GlobalCommandPaletteProps) {
         showDefaultClose={false}
         aria-describedby={undefined}
       >
-        {/* Visually hidden title — Radix requires a DialogTitle for a11y but
-            the CommandInput acts as the visible heading. */}
         <DialogTitle className="sr-only">Command palette</DialogTitle>
         <Command label="Command palette">
           <CommandInput placeholder="Search pages and projects..." autoFocus />

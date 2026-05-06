@@ -9,11 +9,6 @@ import type { TablePaginationProps } from "@/components/shared/types/pagination"
 export type { UsePaginationResult } from "@/components/shared/types/pagination";
 export { usePagination } from "@/components/shared/hooks/use-pagination";
 
-/**
- * Compact pagination footer shaped to live inside a card-bordered table.
- * Renders nothing when there is only a single page so it doesn't add visual
- * noise to small lists.
- */
 export function TablePagination({
   page,
   totalPages,

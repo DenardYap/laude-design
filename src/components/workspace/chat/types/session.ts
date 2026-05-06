@@ -1,4 +1,4 @@
-import type { MouseEvent, RefObject } from "react";
+import type { MouseEvent } from "react";
 import type { ChatSessionDTO } from "@/lib/workspace/types";
 
 export interface SessionTabsProps {
@@ -8,11 +8,10 @@ export interface SessionTabsProps {
 
 export interface SessionTabProps {
   session: ChatSessionDTO;
+  projectId: string;
   active: boolean;
   onSelect: () => void;
   isPending: boolean;
-  onClose: () => void;
-  onDelete: () => void;
   isDragging?: boolean;
   dragOffset?: number;
   tabRef?: (el: HTMLDivElement | null) => void;
@@ -24,17 +23,14 @@ export interface SessionTabProps {
 // ---------------------------------------------------------------------------
 
 export interface SessionHistoryListProps {
+  projectId: string;
   sessions: ChatSessionDTO[];
-  activeSessionId: string | undefined;
-  onSelect: (sessionId: string) => void;
-  onDelete: (sessionId: string) => void;
 }
 
 export interface SessionHistoryRowProps {
   session: ChatSessionDTO;
+  projectId: string;
   isActive: boolean;
-  onSelect: () => void;
-  onDelete: () => void;
 }
 
 export interface RecencyGroup {
@@ -44,19 +40,12 @@ export interface RecencyGroup {
 }
 
 // ---------------------------------------------------------------------------
-// SessionTabStrip — reads projectId to get activeSessionId from store
+// SessionTabStrip — owns scroll/drag; reads everything else from the store
 // ---------------------------------------------------------------------------
 
 export interface SessionTabStripProps {
   projectId: string;
-  displaySessions: ChatSessionDTO[];
-  dragOffset: { tabId: string; offset: number } | null;
-  scrollRef: RefObject<HTMLDivElement | null>;
-  maskImage: string;
-  onClose: (id: string) => void;
-  onDelete: (id: string) => void;
-  registerTabEl: (id: string) => (el: HTMLDivElement | null) => void;
-  onTabMouseDown: (id: string, e: MouseEvent<HTMLDivElement>) => void;
+  sessionsById: ReadonlyMap<string, ChatSessionDTO>;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,5 +56,4 @@ export interface SessionTabActionsProps {
   projectId: string;
   sessions: ChatSessionDTO[];
   onNew: () => void;
-  onDeleteFromHistory: (id: string) => void;
 }

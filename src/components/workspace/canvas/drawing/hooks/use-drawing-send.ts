@@ -15,6 +15,7 @@ import {
   findSandpackIframe,
   requestIframeScreenshot,
 } from "@/components/workspace/canvas/utils/iframe-screenshot";
+import { dataUrlToFile } from "@/components/workspace/canvas/utils/data-url";
 
 const PIXEL_RATIO = 2;
 
@@ -230,17 +231,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error("Image load failed"));
     img.src = src;
   });
-}
-
-function dataUrlToFile(dataUrl: string, name: string): File {
-  const [header, base64] = dataUrl.split(",");
-  const mime = header.match(/:(.*?);/)?.[1] ?? "image/png";
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return new File([bytes], name, { type: mime });
 }
 
 function buildSketchName(): string {

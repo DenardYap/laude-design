@@ -33,11 +33,6 @@ export function DesignerInternals({
   );
 
   // Signal the overlay to dismiss once Sandpack finishes compilation.
-  // We use the same signal Sandpack's own LoadingOverlay uses internally:
-  // `message.type === "done"` emitted by the sandpack client. This fires
-  // on both initial compilation and HMR recompilations — unlike
-  // `sandpack.status === "running"` which fires as soon as the bundler
-  // *process* starts, well before the code has actually compiled.
   const onReadyRef = useRef(onReady);
   useLayoutEffect(() => {
     onReadyRef.current = onReady;
@@ -49,14 +44,8 @@ export function DesignerInternals({
       }
     });
     return unsubscribe;
-    // `listen` is stable (memoised in Sandpack context); intentionally omitted
-    // from the deps array to avoid re-subscribing on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Push file changes to the live bundler. Skipping the first run avoids a
-  // redundant updateFile call right after mount, when Sandpack already has
-  // the files from the initial `files` prop.
   const isFirstRun = useRef(true);
   const onFilesUpdatingRef = useRef(onFilesUpdating);
   useLayoutEffect(() => {
@@ -68,10 +57,6 @@ export function DesignerInternals({
       return;
     }
 
-    // Diff first. Only push changes that actually differ so that:
-    //   • React Strict Mode double-invocations (same files, re-run) are no-ops.
-    //   • router.refresh() that returns the same file content (new array
-    //     reference, same bytes) doesn't flash the loading overlay.
     const designPaths = new Set(designFiles.map((f) => f.path));
 
     const toUpdate: DesignFileDTO[] = [];
@@ -85,41 +70,24 @@ export function DesignerInternals({
     for (const path of Object.keys(sandpack.files)) {
       if (designPaths.has(path)) continue;
       if (SANDPACK_RUNTIME_PATHS.has(path)) continue;
-      // Skip the runtime scaffolding — Sandpack's `addPackageJSONIfNeeded`
-      // rewrites `/package.json` during init and strips its `hidden` flag,
-      // so checking `sandpack.files[path]?.hidden` would incorrectly let us
-      // delete it, making the bundler throw
-      // `"dependencies" was not specified`.
       if (sandpack.files[path]?.hidden) continue;
       toDelete.push(path);
     }
 
-    // Nothing actually changed — skip overlay flash and bundler churn.
     if (toUpdate.length === 0 && toDelete.length === 0) return;
 
-    // Signal the overlay to re-appear while Sandpack recompiles. When
-    // compilation finishes the 'done' listener fires onReady and the
-    // overlay fades out automatically.
+    // Signal the overlay to re-appear while Sandpack recompiles.
     onFilesUpdatingRef.current?.();
 
     for (const f of toUpdate) sandpack.updateFile(f.path, f.content);
     for (const path of toDelete) sandpack.deleteFile(path);
-    // We intentionally read sandpack from the closure on every effect run so
-    // the latest files map is compared. Including `sandpack` in deps would
-    // trigger this on every Sandpack state change (selection, etc).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [designFiles]);
 
   // Forward design-tagger click messages from the iframe to the host
-  // workspace store. Highlight mode is sticky — the user stays in the mode
-  // until they click the toolbar button again or hit ⌘⇧H, so they can tag
-  // several elements in a row without re-entering it each time.
+  // workspace store.
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
       // Guard: only accept messages from a known Sandpack preview iframe.
-      // Without this check, AI-generated code running inside the iframe (or
-      // any other window with a reference to this page) could send arbitrary
-      // design-tagger:click payloads and inject text into the user's chat.
       const iframes = document.querySelectorAll<HTMLIFrameElement>(".sp-preview-iframe");
       const fromKnownIframe = Array.from(iframes).some(
         (f) => f.contentWindow != null && ev.source === f.contentWindow,
@@ -153,9 +121,7 @@ export function DesignerInternals({
 
   // Keep keyboard focus on the parent window so Ctrl+1/2/3 shortcuts (and
   // all other canvas hotkeys) continue to fire even after the user clicks
-  // inside the Sandpack preview iframe. We only steal focus back from the
-  // specific Sandpack iframe — not from every iframe in the page — to avoid
-  // interfering with anything else.
+  // inside the Sandpack preview iframe. 
   useEffect(() => {
     const onBlur = () => {
       requestAnimationFrame(() => {

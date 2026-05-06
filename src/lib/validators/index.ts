@@ -8,6 +8,34 @@ export type ProjectInput = z.infer<typeof ProjectSchema>;
 export const AiProviderEnum = z.enum(["CLAUDE", "GEMINI", "OPENAI"]);
 export type AiProvider = z.infer<typeof AiProviderEnum>;
 
+// Auto-expiry presets surfaced in the UI. "never" (the default) means the
+// key persists until the user explicitly deletes it; the day-based options
+// store an explicit `expiresAt` and are lazy-deleted by the chat route once
+// they pass.
+export const ApiKeyLifetimeEnum = z.enum(["never", "7d", "14d", "30d"]);
+export type ApiKeyLifetime = z.infer<typeof ApiKeyLifetimeEnum>;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+export { DAY_MS };
+const LIFETIME_DAYS: Record<Exclude<ApiKeyLifetime, "never">, number> = {
+  "7d": 7,
+  "14d": 14,
+  "30d": 30,
+};
+
+/**
+ * Returns the absolute expiry timestamp for a chosen lifetime, or null when
+ * the user picked "never". Callers MUST treat null as "no auto-expiry"
+ * rather than substituting their own default.
+ */
+export function expiryFromLifetime(
+  lifetime: ApiKeyLifetime,
+  now: Date = new Date(),
+): Date | null {
+  if (lifetime === "never") return null;
+  return new Date(now.getTime() + LIFETIME_DAYS[lifetime] * DAY_MS);
+}
+
 export const ApiKeySchema = z.object({
   provider: AiProviderEnum,
   secret: z
@@ -15,6 +43,7 @@ export const ApiKeySchema = z.object({
     .min(8, "Key looks too short")
     .max(512, "Key looks too long")
     .refine((v) => !/\s/.test(v), "API key cannot contain whitespace"),
+  lifetime: ApiKeyLifetimeEnum.default("never"),
 });
 export type ApiKeyInput = z.infer<typeof ApiKeySchema>;
 

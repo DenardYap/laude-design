@@ -1,374 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { History, Plus } from "lucide-react";
-import { toast } from "sonner";
+import { useMemo } from "react";
 
-import {
-  ConfirmDialog,
-  IconButton,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui";
+import { ConfirmDialog } from "@/components/ui";
 import type { ChatSessionDTO } from "@/lib/workspace/types";
 import { EMPTY_TAB_LIST, useWorkspaceStore } from "@/stores/workspace-store";
-import { createSession, deleteSession } from "@/server/actions/sessions";
-import { SessionHistoryList } from "@/components/workspace/chat/session-history-list";
-import { SessionTab } from "@/components/workspace/chat/session-tab";
-import { useTabDrag } from "@/components/workspace/chat/hooks/use-tab-drag";
-import { useScrollEdges } from "@/components/workspace/chat/hooks/use-scroll-edges";
-import type {
-  SessionTabActionsProps,
-  SessionTabStripProps,
-  SessionTabsProps,
-} from "@/components/workspace/chat/types/session";
+import { SessionTabStrip } from "@/components/workspace/chat/session-tab-strip";
+import { SessionTabActions } from "@/components/workspace/chat/session-tab-actions";
+import { useNewSession } from "@/components/workspace/chat/hooks/use-new-session";
+import { useSessionDelete } from "@/components/workspace/chat/hooks/use-session-delete";
+import { useSessionClose } from "@/components/workspace/chat/hooks/use-session-close";
+import type { SessionTabsProps } from "@/components/workspace/chat/types/session";
 
-export const TEMP_SESSION_PREFIX = "temp-session-";
-
-// ---------------------------------------------------------------------------
-// SessionTabStrip — reads activeSessionId + setActive from store
-// ---------------------------------------------------------------------------
-
-function SessionTabStrip({
-  projectId,
-  displaySessions,
-  dragOffset,
-  scrollRef,
-  maskImage,
-  onClose,
-  onDelete,
-  registerTabEl,
-  onTabMouseDown,
-}: SessionTabStripProps) {
-  const activeSessionId = useWorkspaceStore(
-    (s) => s.activeSessionByProject[projectId],
-  );
-  const setActive = useWorkspaceStore((s) => s.setActiveSession);
-
-  return (
-    <div
-      ref={scrollRef}
-      className="scrollbar-hide flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
-      style={{ maskImage, WebkitMaskImage: maskImage }}
-    >
-      {displaySessions.map((s) => {
-        const isPending = s.id.startsWith(TEMP_SESSION_PREFIX);
-        const isDragging = dragOffset?.tabId === s.id;
-        return (
-          <SessionTab
-            key={s.id}
-            session={s}
-            active={s.id === activeSessionId}
-            onSelect={() => setActive(projectId, s.id)}
-            isPending={isPending}
-            onClose={() => onClose(s.id)}
-            onDelete={() => onDelete(s.id)}
-            isDragging={isDragging}
-            dragOffset={isDragging ? (dragOffset?.offset ?? 0) : 0}
-            tabRef={isPending ? undefined : registerTabEl(s.id)}
-            onMouseDown={
-              isPending ? undefined : (e) => onTabMouseDown(s.id, e)
-            }
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// SessionTabActions — owns historyOpen state; reads store for open/navigate
-// ---------------------------------------------------------------------------
-
-function SessionTabActions({
-  projectId,
-  sessions,
-  onNew,
-  onDeleteFromHistory,
-}: SessionTabActionsProps) {
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const activeSessionId = useWorkspaceStore(
-    (s) => s.activeSessionByProject[projectId],
-  );
-  const openSessionTab = useWorkspaceStore((s) => s.openSessionTab);
-
-  const handleSelectFromHistory = useCallback(
-    (sessionId: string) => {
-      openSessionTab(projectId, sessionId);
-      setHistoryOpen(false);
-    },
-    [openSessionTab, projectId],
-  );
-
-  const handleDeleteFromHistory = useCallback(
-    (sessionId: string) => {
-      setHistoryOpen(false);
-      onDeleteFromHistory(sessionId);
-    },
-    [onDeleteFromHistory],
-  );
-
-  return (
-    <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-surface-sunken">
-      <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <IconButton
-                aria-label="Session history"
-                className="size-7 shrink-0 hover:bg-border"
-                icon={<History className="size-3.5" />}
-              />
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">All sessions</TooltipContent>
-        </Tooltip>
-        <PopoverContent align="end" sideOffset={6} className="w-80 p-0">
-          <SessionHistoryList
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            onSelect={handleSelectFromHistory}
-            onDelete={handleDeleteFromHistory}
-          />
-        </PopoverContent>
-      </Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <IconButton
-            aria-label="New session"
-            className="size-7 shrink-0 hover:bg-border"
-            icon={<Plus className="size-3.5" />}
-            onClick={onNew}
-          />
-        </TooltipTrigger>
-        <TooltipContent side="bottom">New session</TooltipContent>
-      </Tooltip>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// SessionTabs — public API
-// ---------------------------------------------------------------------------
+export { TEMP_SESSION_PREFIX } from "@/components/workspace/chat/utils/session-constants";
 
 export function SessionTabs({ projectId, sessions }: SessionTabsProps) {
-  const router = useRouter();
-  const activeSessionId = useWorkspaceStore(
-    (s) => s.activeSessionByProject[projectId],
-  );
-  const setActive = useWorkspaceStore((s) => s.setActiveSession);
-  const closeSessionTab = useWorkspaceStore((s) => s.closeSessionTab);
-  const ensureHydrated = useWorkspaceStore((s) => s.ensureSessionTabsHydrated);
   const openSessionIds = useWorkspaceStore(
     (s) => s.openSessionsByProject[projectId] ?? EMPTY_TAB_LIST,
   );
-  const titleOverrides = useWorkspaceStore((s) => s.sessionTitleOverrides);
-  const queryClient = useQueryClient();
+  const deleteConfirmSessionId = useWorkspaceStore((s) => s.deleteConfirmSessionId);
+  const clearSessionDeleteConfirm = useWorkspaceStore((s) => s.clearSessionDeleteConfirm);
+  const stopCloseConfirm = useWorkspaceStore((s) => s.stopCloseConfirm);
+  const clearStopCloseConfirm = useWorkspaceStore((s) => s.clearStopCloseConfirm);
 
-  const [pendingSessions, setPendingSessions] = useState<ChatSessionDTO[]>([]);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [confirmStopCloseId, setConfirmStopCloseId] = useState<string | null>(
-    null,
-  );
-
-  const requestSessionStop = useWorkspaceStore((s) => s.requestSessionStop);
-  const streamingSessionIds = useWorkspaceStore((s) => s.streamingSessionIds);
-
-  // Reconcile the persisted open-tab list with the server's source of truth.
-  const sessionIds = useMemo(() => sessions.map((s) => s.id), [sessions]);
-  const protectedIds = useMemo(
-    () => pendingSessions.map((s) => s.id),
-    [pendingSessions],
-  );
-  useEffect(() => {
-    ensureHydrated(projectId, sessionIds, protectedIds);
-  }, [ensureHydrated, projectId, sessionIds, protectedIds]);
-
-  // Drop pending entries once the server-rendered `sessions` prop catches up.
-  useEffect(() => {
-    if (pendingSessions.length === 0) return;
-    const known = new Set(sessionIds);
-    const next = pendingSessions.filter((s) => !known.has(s.id));
-    if (next.length !== pendingSessions.length) setPendingSessions(next);
-  }, [pendingSessions, sessionIds]);
-
-  const removeFromDb = useMutation({
-    mutationFn: async (sessionId: string) => {
-      const title =
-        sessions.find((s) => s.id === sessionId)?.title ?? "Session";
-      await deleteSession(sessionId);
-      return title;
-    },
-    onSuccess: (title) => {
-      toast.success(`Deleted "${title}"`);
-      router.refresh();
-    },
-    onError: (e) =>
-      toast.error(
-        e instanceof Error ? e.message : "Failed to delete session",
-      ),
-  });
-
-  const requestDelete = useCallback((sessionId: string) => {
-    setConfirmDeleteId(sessionId);
-  }, []);
-
-  const handleConfirmDelete = useCallback(async () => {
-    const id = confirmDeleteId;
-    if (!id) return;
-    closeSessionTab(projectId, id);
-    await removeFromDb.mutateAsync(id);
-    setConfirmDeleteId(null);
-  }, [closeSessionTab, confirmDeleteId, projectId, removeFromDb]);
-
-  const handleCloseTab = useCallback(
-    (sessionId: string) => {
-      if (streamingSessionIds[sessionId]) {
-        setConfirmStopCloseId(sessionId);
-      } else {
-        closeSessionTab(projectId, sessionId);
-      }
-    },
-    [closeSessionTab, projectId, streamingSessionIds],
-  );
-
-  const handleConfirmStopClose = useCallback(() => {
-    const id = confirmStopCloseId;
-    if (!id) return;
-    requestSessionStop(id);
-    closeSessionTab(projectId, id);
-    setConfirmStopCloseId(null);
-  }, [closeSessionTab, confirmStopCloseId, projectId, requestSessionStop]);
-
-  const deletingSession = confirmDeleteId
-    ? sessions.find((s) => s.id === confirmDeleteId)
-    : null;
-
-  // Synchronous guard against rapid-fire clicks.
-  const creatingRef = useRef(false);
-
-  const handleNew = useCallback(async () => {
-    if (creatingRef.current) return;
-
-    const storeState = useWorkspaceStore.getState();
-    const liveActiveId = storeState.activeSessionByProject[projectId];
-
-    if (liveActiveId?.startsWith(TEMP_SESSION_PREFIX)) return;
-    const activeSession = sessions.find((s) => s.id === liveActiveId);
-    if (activeSession && activeSession.isEmpty && liveActiveId) {
-      const hasDraft =
-        (storeState.draftBySession[liveActiveId] ?? "").trim().length > 0;
-      const hasPendingAttachments =
-        (storeState.pendingAttachmentsBySession[liveActiveId] ?? []).length > 0;
-      const hasPendingTags =
-        (storeState.pendingTagsBySession[liveActiveId] ?? []).length > 0;
-      const isStreaming = Boolean(
-        storeState.streamingSessionIds[liveActiveId],
-      );
-      if (
-        !hasDraft &&
-        !hasPendingAttachments &&
-        !hasPendingTags &&
-        !isStreaming
-      ) {
-        return;
-      }
-    }
-
-    // sessions is sorted createdAt asc, so the last entry is the most recent.
-    // If the most recent session is already empty, open it instead of creating
-    // a brand new one (e.g. when the user closes all tabs and one is already waiting).
-    const mostRecentSession = sessions[sessions.length - 1];
-    if (mostRecentSession?.isEmpty) {
-      const id = mostRecentSession.id;
-      const hasDraft =
-        (storeState.draftBySession[id] ?? "").trim().length > 0;
-      const hasPendingAttachments =
-        (storeState.pendingAttachmentsBySession[id] ?? []).length > 0;
-      const hasPendingTags =
-        (storeState.pendingTagsBySession[id] ?? []).length > 0;
-      const isStreaming = Boolean(storeState.streamingSessionIds[id]);
-      if (!hasDraft && !hasPendingAttachments && !hasPendingTags && !isStreaming) {
-        setActive(projectId, id);
-        return;
-      }
-    }
-
-    creatingRef.current = true;
-    const tempId = `${TEMP_SESSION_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const previousActive = liveActiveId;
-    const tempEntry: ChatSessionDTO = {
-      id: tempId,
-      title: "New Session",
-      updatedAt: new Date().toISOString(),
-      isEmpty: true,
-      usage: {
-        currentInputTokens: 0,
-        lifetimeFoldedTokens: 0,
-        lifetimeOutputTokens: 0,
-        summarizedCount: 0,
-        totalCostUsd: 0,
-      },
-    };
-    setPendingSessions((prev) => [...prev, tempEntry]);
-    setActive(projectId, tempId);
-    try {
-      const s = await createSession(projectId);
-      setPendingSessions((prev) => [
-        ...prev.filter((p) => p.id !== tempId),
-        {
-          id: s.id,
-          title: s.title,
-          updatedAt: s.updatedAt,
-          isEmpty: s.isEmpty,
-          usage: {
-            currentInputTokens: 0,
-            lifetimeFoldedTokens: 0,
-            lifetimeOutputTokens: 0,
-            summarizedCount: 0,
-            totalCostUsd: 0,
-          },
-        },
-      ]);
-      useWorkspaceStore.getState().migrateSessionState(tempId, s.id);
-      queryClient.setQueryData(["session-messages", s.id], []);
-      setActive(projectId, s.id);
-      toast.success("New session created");
-      router.refresh();
-    } catch (e) {
-      setPendingSessions((prev) => prev.filter((p) => p.id !== tempId));
-      if (
-        previousActive &&
-        !previousActive.startsWith(TEMP_SESSION_PREFIX)
-      ) {
-        setActive(projectId, previousActive);
-      } else {
-        const firstOpen = openSessionIds.find((id) =>
-          sessions.some((s) => s.id === id),
-        );
-        if (firstOpen) setActive(projectId, firstOpen);
-      }
-      toast.error(e instanceof Error ? e.message : "Failed to create session");
-    } finally {
-      creatingRef.current = false;
-    }
-  }, [openSessionIds, projectId, queryClient, router, sessions, setActive]);
-
-  // Auto-open a fresh session when there are zero open tabs.
-  useEffect(() => {
-    if (pendingSessions.length > 0) return;
-    if (creatingRef.current) return;
-    const liveOpen =
-      useWorkspaceStore.getState().openSessionsByProject[projectId] ?? [];
-    if (liveOpen.length > 0) return;
-    void handleNew();
-  }, [openSessionIds.length, pendingSessions.length, projectId, handleNew]);
+  const { pendingSessions, handleNew } = useNewSession(projectId, sessions, openSessionIds);
+  const { handleConfirmDelete, deletingSession } = useSessionDelete(projectId, sessions);
+  const { handleConfirmStopClose } = useSessionClose();
 
   const sessionsById = useMemo(() => {
     const map = new Map<string, ChatSessionDTO>();
@@ -379,75 +36,13 @@ export function SessionTabs({ projectId, sessions }: SessionTabsProps) {
     return map;
   }, [sessions, pendingSessions]);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { renderOrder, dragOffset, handleTabMouseDown, registerTabEl } =
-    useTabDrag(openSessionIds, projectId, scrollRef);
-
-  const displaySessions = useMemo(() => {
-    return renderOrder
-      .map((id) => sessionsById.get(id))
-      .filter((s): s is ChatSessionDTO => Boolean(s))
-      .map((s) => {
-        const override = titleOverrides[s.id];
-        return override ? { ...s, title: override } : s;
-      });
-  }, [renderOrder, sessionsById, titleOverrides]);
-
-  // Keep the active session in view when it changes.
-  useEffect(() => {
-    if (!activeSessionId) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    const target = el.querySelector<HTMLElement>(
-      `[data-session-id="${CSS.escape(activeSessionId)}"]`,
-    );
-    target?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [activeSessionId, displaySessions.length]);
-
-  // Convert vertical scroll to horizontal so non-trackpad users can navigate.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (e.deltaX === 0 && e.deltaY !== 0) {
-        e.preventDefault();
-        el.scrollLeft += e.deltaY;
-      }
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
-  const edges = useScrollEdges(scrollRef, [displaySessions.length]);
-  const FADE = 28;
-  const maskImage = `linear-gradient(to right, transparent 0, black ${
-    edges.left ? FADE : 0
-  }px, black calc(100% - ${edges.right ? FADE : 0}px), transparent 100%)`;
-
   return (
     <div className="flex items-center gap-0.5 pl-2 py-1.5 mr-2">
-      <SessionTabStrip
-        projectId={projectId}
-        displaySessions={displaySessions}
-        dragOffset={dragOffset}
-        scrollRef={scrollRef}
-        maskImage={maskImage}
-        onClose={handleCloseTab}
-        onDelete={requestDelete}
-        registerTabEl={registerTabEl}
-        onTabMouseDown={handleTabMouseDown}
-      />
-      <SessionTabActions
-        projectId={projectId}
-        sessions={sessions}
-        onNew={handleNew}
-        onDeleteFromHistory={requestDelete}
-      />
+      <SessionTabStrip projectId={projectId} sessionsById={sessionsById} />
+      <SessionTabActions projectId={projectId} sessions={sessions} onNew={handleNew} />
       <ConfirmDialog
-        open={confirmDeleteId !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirmDeleteId(null);
-        }}
+        open={deleteConfirmSessionId !== null}
+        onOpenChange={(open) => { if (!open) clearSessionDeleteConfirm(); }}
         title="Delete this session?"
         description={
           deletingSession
@@ -459,10 +54,8 @@ export function SessionTabs({ projectId, sessions }: SessionTabsProps) {
         onConfirm={handleConfirmDelete}
       />
       <ConfirmDialog
-        open={confirmStopCloseId !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirmStopCloseId(null);
-        }}
+        open={stopCloseConfirm !== null}
+        onOpenChange={(open) => { if (!open) clearStopCloseConfirm(); }}
         title="Stop and close this session?"
         description="The agent is still working. Closing the tab will abort the in-flight turn."
         confirmLabel="Stop and close"

@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 
 import { cn } from "@/lib/utils";
 import type { MarkdownProps } from "@/components/workspace/chat/types/misc";
+import { urlTransform } from "@/components/workspace/chat/utils/markdown";
 
 const COMPONENTS: Components = {
   p: ({ className, ...props }) => (
@@ -99,16 +100,6 @@ const COMPONENTS: Components = {
     <td className={cn("border border-border px-2 py-1", className)} {...props} />
   ),
 };
-
-// Explicit URL allowlist — react-markdown applies this by default, but pinning
-// it here makes the protection visible in code review and survives future
-// plugin changes that might re-enable raw HTML or relax URL filtering.
-const ALLOWED_URL_SCHEMES = /^(https?:|mailto:|tel:)/i;
-
-function urlTransform(url: string): string {
-  if (ALLOWED_URL_SCHEMES.test(url)) return url;
-  return "";
-}
 
 export function Markdown({ children, className }: MarkdownProps) {
   return (

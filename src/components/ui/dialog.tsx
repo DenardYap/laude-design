@@ -43,11 +43,6 @@ const DialogContent = forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        // `max-w-[calc(100%-1rem)]` keeps the modal off the very edge on
-        // small screens; the desktop `sm:max-w-lg` cap restores the
-        // ~32rem default once there's room. Vertical safety: cap at 90dvh
-        // so the dialog scrolls internally instead of overflowing the
-        // viewport when the soft keyboard is open.
         "fixed left-[50%] top-[50%] z-50 grid w-full max-h-[90dvh] max-w-[calc(100%-1rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-lg border border-border bg-surface p-4 text-ink shadow-lg duration-200 sm:max-w-lg sm:p-6",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
         className,

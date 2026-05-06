@@ -5,8 +5,9 @@ import { TriangleAlert } from "lucide-react";
 
 import { Button } from "@/components/ui";
 import { DeleteAccountDialog } from "./delete-account-dialog";
+import type { DeleteAccountSectionProps } from "@/components/settings/types/settings";
 
-export function DeleteAccountSection() {
+export function DeleteAccountSection({ userEmail }: DeleteAccountSectionProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -32,7 +33,11 @@ export function DeleteAccountSection() {
         </Button>
       </div>
 
-      <DeleteAccountDialog open={open} onOpenChange={setOpen} />
+      <DeleteAccountDialog
+        open={open}
+        onOpenChange={setOpen}
+        userEmail={userEmail}
+      />
     </div>
   );
 }

@@ -1,6 +1,28 @@
 import type { UIMessage } from "ai";
 import type { ChatError } from "@/components/workspace/chat/utils/chat-errors";
 
+export interface ConfigureKeysLinkProps {
+  label?: string;
+}
+
+export interface ScrollToBottomButtonProps {
+  onClick: () => void;
+}
+
+export interface CopyMessageButtonProps {
+  text: string;
+}
+
+export interface MessageRowProps {
+  message: UIMessage;
+  isStreaming: boolean;
+  sessionId: string;
+}
+
+export interface ChatErrorBannerProps {
+  error: ChatError;
+}
+
 export interface ChatPaneProps {
   projectId: string;
   /**

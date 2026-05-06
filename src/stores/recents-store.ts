@@ -50,7 +50,7 @@ export const useRecentsStore = create<RecentsState>()(
         set((state) => ({ recents: state.recents.filter((r) => keyOf(r) !== key) })),
       clear: () => set({ recents: [] }),
     }),
-    { name: "claude-design:recents" },
+    { name: "laude-design:recents" },
   ),
 );
 

@@ -3,12 +3,10 @@
 import { useMemo } from "react";
 import { match } from "ts-pattern";
 
-import type { DesignDTO } from "@/lib/workspace/types";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { CanvasTabStrip } from "@/components/workspace/canvas/canvas-tab-strip";
 import { CanvasToolbar } from "@/components/workspace/canvas/canvas-toolbar";
 import { FilesActions } from "@/components/workspace/canvas/files-actions";
-import type { ExitDrawingControl } from "@/components/workspace/canvas/drawing/hooks/use-exit-drawing";
 import type { CanvasHeaderProps } from "@/components/workspace/canvas/types/canvas-pane";
 
 export function CanvasHeader({
@@ -30,9 +28,7 @@ export function CanvasHeader({
     return !design || design.files.length === 0;
   }, [activeTab, designs]);
 
-  // Don't render the trailing toolbar until the store has hydrated from
-  // localStorage — avoids a flash where FilesActions appears for a frame
-  // before the persisted design tab is known.
+  // Don't render the trailing toolbar until the store has hydrated from localStorage 
   const trailing = !hasHydrated ? null : match(activeTab)
     .with("files", () => <FilesActions projectId={projectId} />)
     .otherwise(() => (

@@ -12,8 +12,8 @@ export default function Loading() {
       <p className="flex items-start gap-1.5 text-xs text-ink-muted">
         <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
         <span>
-          Use a dedicated key per provider — never reuse a production key. Keys are stored in
-          this browser and sent to our server only when processing your AI requests.
+          Use a dedicated key per provider — never reuse a production key. Keys are encrypted
+          at rest with AES-256-GCM and never shown in full.
         </span>
       </p>
       <div className="space-y-3">

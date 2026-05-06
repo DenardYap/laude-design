@@ -1,12 +1,6 @@
 import type { SVGProps } from 'react';
 import { cn } from "@/lib/utils";
 
-/**
- * Brand glyph: a rounded artboard with an inscribed diamond. Used as the
- * static composition mark in tabs, badges, and empty states. Sized via
- * Tailwind size-* utilities (defaults to size-4) so it slots into any
- * existing icon usage with no changes.
- */
 export function FramesMark({
   className,
   ...props

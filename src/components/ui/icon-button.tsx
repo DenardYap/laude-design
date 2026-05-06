@@ -8,7 +8,6 @@ import { Button, buttonVariants } from "./button";
 export interface IconButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children">,
     Omit<VariantProps<typeof buttonVariants>, "size"> {
-  /** Required so icon-only controls are accessible */
   "aria-label": string;
   icon: ReactNode;
 }

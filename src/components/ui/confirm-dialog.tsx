@@ -27,11 +27,6 @@ interface ConfirmDialogProps {
   onConfirm: () => void | Promise<void>;
 }
 
-/**
- * Forcing function for irreversible actions (per design.mdc Lock-ins). Always
- * prefer this over a bare button for destructive actions so users can recover
- * from a slip without the cost of the action.
- */
 export function ConfirmDialog({
   open,
   onOpenChange,

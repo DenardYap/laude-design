@@ -11,25 +11,13 @@ import {
   findSandpackIframe,
   requestIframeScreenshot,
 } from "@/components/workspace/canvas/utils/iframe-screenshot";
+import { dataUrlToFile } from "@/components/workspace/canvas/utils/data-url";
+import type {
+  ScreenshotRect,
+  CanvasScreenshot,
+} from "@/components/workspace/canvas/types/screenshot";
 
-export interface ScreenshotRect {
-  /** Top-left X in viewport CSS pixels. */
-  x: number;
-  /** Top-left Y in viewport CSS pixels. */
-  y: number;
-  /** Width in viewport CSS pixels. */
-  height: number;
-  width: number;
-}
-
-export interface CanvasScreenshot {
-  /** Capture the entire canvas immediately. */
-  captureFull: () => Promise<void>;
-  /** Crop the canvas to `rect` (parent-page viewport coords) and attach it. */
-  captureArea: (rect: ScreenshotRect) => Promise<void>;
-  /** Flip the toolbar mode so the user can drag-select directly on the canvas. */
-  startAreaCapture: () => void;
-}
+export type { ScreenshotRect, CanvasScreenshot };
 
 const PIXEL_RATIO = 2;
 
@@ -153,19 +141,6 @@ export function useCanvasScreenshot(
   }, [sessionId, setTool]);
 
   return { captureFull, captureArea, startAreaCapture };
-}
-
-function dataUrlToFile(dataUrl: string, name: string): File {
-  // fetch(dataUrl) is blocked by CSP (connect-src doesn't allow data: URIs).
-  // Decode the base64 payload directly instead.
-  const [header, base64] = dataUrl.split(",");
-  const mime = header.match(/:(.*?);/)?.[1] ?? "image/png";
-  const binary = atob(base64 ?? "");
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return new File([bytes], name, { type: mime });
 }
 
 // Mimics macOS' "Screenshot 2026-05-01 at 3.36.42 PM.png" style — readable,

@@ -10,8 +10,6 @@ export const SORT_OPTIONS: ReadonlyArray<SortOption<PublicSortKey>> = [
 ];
 
 export function sortPublicSkills(skills: PublicSkill[], key: PublicSortKey): PublicSkill[] {
-  // The server pre-sorts by saves desc; for that key we don't need to recompute.
-  // For stable secondary ordering, fall back to updatedAt desc on ties.
   const ts = (s: PublicSkill) => new Date(s.updatedAt).getTime();
   return [...skills].sort((a, b) => {
     const primary = match(key)

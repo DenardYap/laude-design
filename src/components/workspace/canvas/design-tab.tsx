@@ -1,11 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
-import { Pencil, X } from "lucide-react";
-import { toast } from "sonner";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { Pencil, X } from "lucide-react";
 
 import {
   ContextMenu,
@@ -16,8 +13,7 @@ import {
 import { InlineRenameInput } from "@/components/shared/inline-rename-input";
 import { cn } from "@/lib/utils";
 import type { DesignDTO } from "@/lib/workspace/types";
-import { useOptimisticFilesStore } from "@/stores/optimistic-files-store";
-import { deleteDesign, renameDesign } from "@/server/actions/designs";
+import { useRenameDesign, useDeleteDesign } from "@/components/workspace/canvas/hooks/use-design-mutations";
 import { TAB_BASE, TAB_ACTIVE, TAB_INACTIVE } from "@/components/workspace/canvas/utils/tab-styles";
 import type { DesignTabProps } from "@/components/workspace/canvas/types/canvas-tab-strip";
 
@@ -33,59 +29,10 @@ export function DesignTab({
   onClose,
   onMouseDown,
 }: DesignTabProps) {
-  const router = useRouter();
   const renameTriggeredRef = useRef(false);
 
-  const setDesignRename = useOptimisticFilesStore((s) => s.setDesignRename);
-  const clearDesignRename = useOptimisticFilesStore(
-    (s) => s.clearDesignRename,
-  );
-  const markDesignDeleted = useOptimisticFilesStore(
-    (s) => s.markDesignDeleted,
-  );
-  const unmarkDesignDeleted = useOptimisticFilesStore(
-    (s) => s.unmarkDesignDeleted,
-  );
-
-  const rename = useMutation({
-    mutationFn: async (name: string) => {
-      const next = name.trim() || "Untitled";
-      await renameDesign(design.id, name);
-      return next;
-    },
-    onMutate: (name) => {
-      const next = name.trim() || "Untitled";
-      setDesignRename(design.id, next);
-      onRenameChange(false);
-    },
-    onSuccess: (newName) => {
-      toast.success(`Renamed design to "${newName}"`);
-      router.refresh();
-    },
-    onError: (e) => {
-      clearDesignRename(design.id);
-      toast.error(e instanceof Error ? e.message : "Failed to rename");
-    },
-  });
-
-  const remove = useMutation({
-    mutationFn: async () => {
-      await deleteDesign(design.id);
-      return design.name;
-    },
-    onMutate: () => {
-      markDesignDeleted(design.id);
-      onClose();
-    },
-    onSuccess: (name) => {
-      toast.success(`Deleted "${name}"`);
-      router.refresh();
-    },
-    onError: (e) => {
-      unmarkDesignDeleted(design.id);
-      toast.error(e instanceof Error ? e.message : "Failed to delete");
-    },
-  });
+  const rename = useRenameDesign(design, { onBeforeCommit: () => onRenameChange(false) });
+  const remove = useDeleteDesign(design, { onBeforeDelete: onClose });
 
   return (
     <ContextMenu>

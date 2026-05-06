@@ -11,8 +11,6 @@ import { FilesTree } from "@/components/workspace/canvas/files-tree";
 import { DesignRenderer } from "@/components/workspace/canvas/design-renderer";
 import type { CanvasPaneProps } from "@/components/workspace/canvas/types/canvas-pane";
 
-export { CanvasHeader } from "@/components/workspace/canvas/canvas-header";
-
 export function CanvasPane({
   projectId,
   projectName,
@@ -32,11 +30,6 @@ export function CanvasPane({
     return map;
   }, [designs]);
 
-  // Stamp the currently-rendered design id on the canvas root so the agent's
-  // self-critique screenshot helper can verify that the iframe it's about to
-  // capture matches the design it was asked to capture. Without this, a fast
-  // tab switch between request and capture could result in screenshotting the
-  // wrong design (or worse — the user's currently-focused work).
   const activeDesignId = activeTab.startsWith("design:")
     ? activeTab.slice("design:".length)
     : null;
@@ -48,9 +41,6 @@ export function CanvasPane({
         data-design-id={activeDesignId ?? undefined}
         className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border bg-canvas"
       >
-        {/* Hold a neutral canvas-textured placeholder until Zustand's persist
-            middleware has finished reading localStorage. This prevents a flash
-            of the Files tree when the user's last tab was a design. */}
         {!hasHydrated ? (
           <div
             aria-hidden="true"

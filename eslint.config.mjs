@@ -41,6 +41,11 @@ const eslintConfig = [
           message:
             "new Function() executes arbitrary code — use explicit functions instead.",
         },
+        {
+          selector: "CallExpression[callee.name='eval']",
+          message:
+            "eval() executes arbitrary code — use explicit functions instead.",
+        },
       ],
 
       // Ban importing rehype plugins that re-enable raw HTML in react-markdown,

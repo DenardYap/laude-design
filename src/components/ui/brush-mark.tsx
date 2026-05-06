@@ -1,12 +1,6 @@
 import type { SVGProps } from 'react';
 import { cn } from "@/lib/utils";
 
-/**
- * Brand glyph: a sketchy, textured paint brush painting the ground.
- *
- * Inherits color via `currentColor`; size with Tailwind size-* utilities
- * (defaults to size-4).
- */
 export function BrushMark({
   className,
   ...props

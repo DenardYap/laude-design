@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { assertWithinLimit } from "@/lib/limits";
 
 async function assertProject(projectId: string) {
   const user = await requireUser();
@@ -58,7 +59,8 @@ export async function createDesign(
   projectId: string,
   input: { name?: string; folderId?: string | null } = {},
 ) {
-  await assertProject(projectId);
+  const user = await assertProject(projectId);
+  await assertWithinLimit(user.id, "designs");
   const base = input.name?.trim() || "Untitled design";
   const folderId = input.folderId ?? null;
   const existing = await siblingNames(projectId, folderId);

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { assertWithinLimit } from "@/lib/limits";
 
 async function assertProject(projectId: string) {
   const user = await requireUser();
@@ -59,7 +60,8 @@ export async function createFolder(
   name: string,
   parentId: string | null,
 ) {
-  await assertProject(projectId);
+  const user = await assertProject(projectId);
+  await assertWithinLimit(user.id, "folders");
   const base = name.trim() || "New folder";
   const existing = await siblingNames(projectId, parentId);
   const uniqueName = makeUniqueName(base, existing);

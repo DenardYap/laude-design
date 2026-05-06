@@ -23,9 +23,6 @@ export function InlineDesignPlan({
     queryKey: ["plan", planId],
     queryFn: () => (planId ? fetchPlan(planId) : Promise.resolve(null)),
     enabled: Boolean(planId),
-    // Plans only mutate while an agent turn is ticking off steps. Once the
-    // server marks it terminal, the checklist is frozen — stop polling so
-    // finished message threads don't hammer the API forever.
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       if (status === "COMPLETED" || status === "ABANDONED") return false;
@@ -35,8 +32,6 @@ export function InlineDesignPlan({
   });
 
   const title = plan?.title ?? fallbackTitle ?? "Design plan";
-  // Until the server returns, fall back to the steps from the tool input —
-  // they're identical except for the (always-false) initial completed flag.
   const steps =
     plan?.steps ??
     (fallbackSteps?.map((s) => ({ ...s, completed: false })) ?? []);
@@ -75,7 +70,7 @@ export function InlineDesignPlan({
       <ul className="space-y-1">
         {steps.map((step, i) => (
           <li
-            key={step.id}
+            key={step.id ?? i}
             className="flex items-start gap-2 text-xs leading-relaxed"
           >
             <span

@@ -1,4 +1,5 @@
 import type { TagMarker } from "@/lib/workspace/tag-markers";
+import type { UploadedFile } from "@/lib/api/uploads";
 
 export interface InlineDesignPlanProps {
   /** Plan id from the planDesign tool call's output. May be undefined while still streaming. */
@@ -24,4 +25,9 @@ export interface TagChipProps {
 export interface MarkdownProps {
   children: string;
   className?: string;
+}
+
+export interface AttachmentChipProps {
+  file: UploadedFile;
+  onRemove: () => void;
 }

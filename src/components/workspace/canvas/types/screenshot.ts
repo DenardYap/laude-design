@@ -1,8 +1,24 @@
 import type { RefObject } from "react";
 import type { DesignDTO } from "@/lib/workspace/types";
-import type { ScreenshotRect } from "@/components/workspace/canvas/hooks/use-screenshot";
 
-export type { ScreenshotRect };
+export interface ScreenshotRect {
+  /** Top-left X in viewport CSS pixels. */
+  x: number;
+  /** Top-left Y in viewport CSS pixels. */
+  y: number;
+  /** Width in viewport CSS pixels. */
+  height: number;
+  width: number;
+}
+
+export interface CanvasScreenshot {
+  /** Capture the entire canvas immediately. */
+  captureFull: () => Promise<void>;
+  /** Crop the canvas to `rect` (parent-page viewport coords) and attach it. */
+  captureArea: (rect: ScreenshotRect) => Promise<void>;
+  /** Flip the toolbar mode so the user can drag-select directly on the canvas. */
+  startAreaCapture: () => void;
+}
 
 export interface Point {
   x: number;

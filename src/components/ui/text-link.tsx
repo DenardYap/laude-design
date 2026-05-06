@@ -10,10 +10,6 @@ export interface TextLinkProps
   external?: boolean;
 }
 
-/**
- * Inline text link styled to fit body copy. Uses ink color with a hover
- * underline so links don't shout in dense UI (per refactoring-ui).
- */
 const TextLink = forwardRef<HTMLAnchorElement, TextLinkProps>(
   ({ className, external, ...props }, ref) => {
     const externalProps = external

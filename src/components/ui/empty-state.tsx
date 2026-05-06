@@ -5,9 +5,6 @@ interface EmptyStateProps {
   icon?: ReactNode;
   title: string;
   description?: string;
-  /**
-   * Empty states must include a CTA per the design rules. Make this prominent.
-   */
   action: ReactNode;
   className?: string;
 }

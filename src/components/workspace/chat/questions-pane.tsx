@@ -1,15 +1,17 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { match } from "ts-pattern";
 
 import { Textarea } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import type {
-  AnswerValue,
-  ClarifyingQuestionItem,
-} from "@/app/api/sessions/[sessionId]/questions/route";
 import type { QuestionBlockProps } from "@/components/workspace/chat/types/questions";
+import {
+  allAnswered,
+  synthesizeAnswerMessage,
+  synthesizeSkipMessage,
+} from "@/components/workspace/chat/utils/clarifying-questions";
+
+export { allAnswered, synthesizeAnswerMessage, synthesizeSkipMessage };
 
 export { useQuestionSets } from "@/components/workspace/chat/hooks/use-question-sets";
 
@@ -88,58 +90,4 @@ export function QuestionBlock({
       </div>
     </div>
   );
-}
-
-export function allAnswered(
-  items: ClarifyingQuestionItem[],
-  answers: Record<string, AnswerValue>,
-) {
-  return items.every((q) => {
-    const a = answers[q.id];
-    if (!a) return false;
-    return match(a)
-      .with({ kind: "option" }, ({ optionId }) =>
-        q.options.some((o) => o.id === optionId),
-      )
-      .with({ kind: "options" }, ({ optionIds }) => optionIds.length > 0)
-      .with({ kind: "text" }, ({ text }) => text.trim().length > 0)
-      .exhaustive();
-  });
-}
-
-export function synthesizeAnswerMessage(
-  items: ClarifyingQuestionItem[],
-  answers: Record<string, AnswerValue>,
-) {
-  const lines = items.map((q) => {
-    const a = answers[q.id];
-    const rendered = a
-      ? match(a)
-          .with({ kind: "option" }, ({ optionId }) => {
-            const opt = q.options.find((o) => o.id === optionId);
-            return opt?.label ?? optionId;
-          })
-          .with({ kind: "options" }, ({ optionIds }) =>
-            optionIds
-              .map(
-                (id) => q.options.find((o) => o.id === id)?.label ?? id,
-              )
-              .join(", "),
-          )
-          .with({ kind: "text" }, ({ text }) => text.trim())
-          .exhaustive()
-      : "—";
-    return `- ${q.prompt} → ${rendered}`;
-  });
-  return `Here are my answers:\n${lines.join("\n")}`;
-}
-
-export function synthesizeSkipMessage(items: ClarifyingQuestionItem[]) {
-  const skipped = items.map((q) => `- ${q.prompt}`).join("\n");
-  return [
-    "I'd rather skip these questions:",
-    skipped,
-    "",
-    "Use your best judgment based on what I've already told you. If you genuinely can't move forward without one of them, push back briefly and explain why; otherwise just proceed with the design.",
-  ].join("\n");
 }

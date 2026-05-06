@@ -1,39 +1,22 @@
 "use client";
 
+import type {
+  IframeScreenshotCrop,
+  IframeScreenshotReply,
+  IframeScreenshotRequestOpts,
+} from "@/components/workspace/canvas/types/iframe-screenshot";
+
+export type {
+  IframeScreenshotCrop,
+  IframeScreenshotReply,
+  IframeScreenshotRequestOpts,
+};
+
 const REQUEST_TIMEOUT_MS = 25_000;
-/** Re-send the screenshot request at this interval while waiting for a reply. */
 const REQUEST_RETRY_INTERVAL_MS = 3_000;
 
-export interface IframeScreenshotCrop {
-  /** All in iframe-local CSS pixels. */
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface IframeScreenshotReply {
-  dataUrl?: string;
-  error?: string;
-}
-
-interface RequestOpts {
-  pixelRatio?: number;
-  crop?: IframeScreenshotCrop;
-  /**
-   * When true, capture the FULL scroll extent of the design rather than just
-   * the visible iframe viewport. Used by the agent's self-critique screenshot
-   * so a long landing page is reviewed end-to-end instead of one screen at a
-   * time. The iframe automatically caps the longest device-pixel edge at
-   * 4096 px (provider-safe across Anthropic / OpenAI / Gemini) by dialing
-   * down `pixelRatio` for very tall pages. Ignores `crop` if also set.
-   */
-  fullPage?: boolean;
-}
-
 /**
- * Locate the Sandpack preview iframe inside `host`. Falls back to the first
- * iframe so this works for any embedded design surface that mounts an iframe.
+ * Locate the Sandpack preview iframe inside `host`.
  */
 export function findSandpackIframe(
   host: HTMLElement,
@@ -44,24 +27,11 @@ export function findSandpackIframe(
 }
 
 /**
- * Ask the Sandpack iframe to render a same-origin screenshot of the live
- * design (and optionally crop it). html-to-image cannot traverse into the
- * iframe from the parent page — it would just clone an empty <iframe/> box —
- * so we delegate to the in-iframe screenshot script that lives in
- * `sandpack-files.ts`. The script replies with a `design-screenshot:result`
- * (success) or `:error` postMessage tagged with our requestId.
- *
- * Retry logic: the screenshot request is re-sent every `REQUEST_RETRY_INTERVAL_MS`
- * and also immediately whenever the iframe's screenshot script posts
- * `design-screenshot:ready`. This handles the common case where the agent
- * just finished editing a design and Sandpack is still recompiling — the
- * first postMessage arrives before the script's `window.addEventListener`
- * is set up and is silently dropped; the retry catches it once the bundle
- * is live.
+ * Ask the Sandpack iframe to render a same-origin screenshot of the live design.
  */
 export function requestIframeScreenshot(
   iframe: HTMLIFrameElement,
-  opts: RequestOpts = {},
+  opts: IframeScreenshotRequestOpts = {},
 ): Promise<IframeScreenshotReply> {
   return new Promise((resolve) => {
     const win = iframe.contentWindow;
@@ -100,9 +70,6 @@ export function requestIframeScreenshot(
         | undefined;
       if (!data) return;
 
-      // When the screenshot script becomes ready (html-to-image loaded),
-      // immediately resend our request in case the first copy was dropped
-      // because the script wasn't running yet.
       if (data.type === "design-screenshot:ready" && !settled) {
         sendRequest();
         return;
@@ -110,11 +77,6 @@ export function requestIframeScreenshot(
 
       if (data.requestId !== requestId) return;
       if (data.type === "design-screenshot:result") {
-        // Defense-in-depth: even though the iframe is sandboxed and runs
-        // our own injected script, we sanity-check the payload shape so a
-        // compromised or buggy in-iframe script can never trick callers
-        // into uploading non-PNG content (or arbitrary strings) to our
-        // attachment endpoint.
         if (!isLikelyPngDataUrl(data.dataUrl)) {
           finish({
             error:

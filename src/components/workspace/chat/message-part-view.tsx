@@ -55,9 +55,6 @@ export function MessagePartView({
       />
     ))
     .with({ type: "tool-planDesign" }, (p) => {
-      // Render the live checklist inline at the tool call's position.
-      // Output (planId) lands once execution finishes; until then we use
-      // the partial input so the user sees the plan immediately.
       const anyPart = p as {
         input?: { title?: string; steps?: { id: string; label: string }[] };
         output?: { planId?: string };
@@ -71,11 +68,6 @@ export function MessagePartView({
       );
     })
     .with({ type: "tool-askClarifyingQuestions" }, (p) => {
-      // Render the questions interactively, inline at the tool call's
-      // position. Without this, the chat shows just a tiny "Asked
-      // clarifying questions" indicator while the actual UI lives in a
-      // separate canvas region — and users perceive the agent as "stuck"
-      // because there's no in-place affordance for what to do next.
       const anyPart = p as {
         state?: string;
         input?: { rationale?: string; questions?: ClarifyingQuestionItem[] };

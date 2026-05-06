@@ -16,7 +16,6 @@ export default async function SettingsPage() {
       <PageHeader
         title="Settings"
         description="Manage your account preferences."
-        eyebrow={<Settings className="size-5 text-ink-muted" />}
       />
 
       <section className="space-y-4">
@@ -40,7 +39,9 @@ export default async function SettingsPage() {
           title="Danger zone"
           description="Actions here are permanent and cannot be reversed."
         />
-        <DeleteAccountSection />
+        {user.email ? (
+          <DeleteAccountSection userEmail={user.email} />
+        ) : null}
       </section>
     </div>
   );

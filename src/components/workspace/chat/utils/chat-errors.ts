@@ -1,12 +1,7 @@
 import { match, P } from "ts-pattern";
+import type { ChatError } from "@/components/workspace/chat/types/chat-errors";
 
-export type ChatError =
-  | { type: "api-key-missing"; provider: string }
-  | { type: "api-key-invalid"; provider: string }
-  | { type: "rate-limit"; provider: string | null }
-  | { type: "model-not-found"; modelId: string | null }
-  | { type: "network" }
-  | { type: "generic"; message: string };
+export type { ChatError };
 
 export const PROVIDER_DISPLAY: Record<string, string> = {
   CLAUDE: "Claude",
@@ -131,4 +126,8 @@ function detectProvider(lower: string): string | null {
   if (lower.includes("openai") || lower.includes("gpt")) return "OPENAI";
   if (lower.includes("google") || lower.includes("gemini")) return "GEMINI";
   return null;
+}
+
+export function providerName(provider: string): string {
+  return PROVIDER_DISPLAY[provider] ?? provider;
 }

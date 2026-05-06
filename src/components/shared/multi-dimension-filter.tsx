@@ -28,8 +28,7 @@ export type { FilterGroup } from "@/components/shared/types/filter";
 /**
  * Single-popover filter that exposes several independent dimensions at once.
  * Each dimension is a multi-select group; selections within a dimension OR
- * together, dimensions AND together, matching the convention used by Linear,
- * Notion, etc.
+ * together, dimensions AND together.
  */
 export function MultiDimensionFilter({
   scope,

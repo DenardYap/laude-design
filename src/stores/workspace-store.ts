@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { UIDataTypes, UIMessagePart, UITools } from "ai";
 
-import { MODEL_OPTIONS } from "@/lib/workspace/types";
+import { MODEL_OPTIONS } from "@/lib/workspace/utils/models";
 import type { ChatSessionDTO, SessionUsage } from "@/lib/workspace/types";
 import type { UploadedFile } from "@/lib/api/uploads";
 import type { TagMarker } from "@/lib/workspace/tag-markers";
@@ -133,6 +133,10 @@ export interface WorkspaceState {
   exportOpen: boolean;
   setExportOpen: (open: boolean) => void;
 
+  // Session history popover
+  sessionHistoryOpen: boolean;
+  setSessionHistoryOpen: (open: boolean) => void;
+
   // Composer draft text per session
   draftBySession: Record<string, string>;
   setDraft: (sessionId: string, text: string) => void;
@@ -199,7 +203,18 @@ export interface WorkspaceState {
   selfCritiqueBySession: Record<string, boolean>;
   setSelfCritique: (sessionId: string, enabled: boolean) => void;
 
-  // True once Zustand has finished reading from localStorage on startup.
+  // Session tab confirmation dialogs — ephemeral UI state, not persisted.
+  // Stored here so leaf components (SessionTab, SessionHistoryRow) can trigger
+  // them without needing callbacks drilled from the top.
+  deleteConfirmSessionId: string | null;
+  requestSessionDelete: (sessionId: string) => void;
+  clearSessionDeleteConfirm: () => void;
+
+  stopCloseConfirm: { sessionId: string; projectId: string } | null;
+  closeOrConfirmSessionTab: (projectId: string, sessionId: string) => void;
+  clearStopCloseConfirm: () => void;
+
+  // True once Zustand has finished raddSummarizationMarkereading from localStorage on startup.
   // Use this to avoid showing stale defaults before hydration completes.
   _hasHydrated: boolean;
   _setHasHydrated: (v: boolean) => void;
@@ -213,7 +228,7 @@ const DEFAULT_MODEL = MODEL_OPTIONS[0];
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       activeSessionByProject: {},
       setActiveSession: (projectId, sessionId) =>
         set((s) => {
@@ -471,6 +486,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       exportOpen: false,
       setExportOpen: (exportOpen) => set({ exportOpen }),
 
+      sessionHistoryOpen: false,
+      setSessionHistoryOpen: (sessionHistoryOpen) => set({ sessionHistoryOpen }),
+
       draftBySession: {},
       setDraft: (sessionId, text) =>
         set((s) => ({
@@ -653,6 +671,20 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           },
         })),
 
+      deleteConfirmSessionId: null,
+      requestSessionDelete: (sessionId) => set({ deleteConfirmSessionId: sessionId }),
+      clearSessionDeleteConfirm: () => set({ deleteConfirmSessionId: null }),
+
+      stopCloseConfirm: null,
+      closeOrConfirmSessionTab: (projectId, sessionId) => {
+        if (get().streamingSessionIds[sessionId]) {
+          set({ stopCloseConfirm: { sessionId, projectId } });
+        } else {
+          get().closeSessionTab(projectId, sessionId);
+        }
+      },
+      clearStopCloseConfirm: () => set({ stopCloseConfirm: null }),
+
       _hasHydrated: false,
       _setHasHydrated: (v) => set({ _hasHydrated: v }),
 
@@ -686,7 +718,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         }),
     }),
     {
-      name: "claude-design:workspace",
+      name: "laude-design:workspace",
       onRehydrateStorage: () => (state) => {
         state?._setHasHydrated(true);
       },

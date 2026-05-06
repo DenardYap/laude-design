@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Using HSL cause it's better */
 @layer base {
   :root {
     --radius: 0.625rem;
@@ -48,6 +49,7 @@
     --canvas-grid: 35 12% 75%;
   }
 
+  /* TODO: add dark mode! */
   .dark {
     --background: 30 10% 7%;
     --surface: 30 10% 9%;
@@ -94,13 +96,7 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Scrollbars — thin, themed, and invisible at rest.
-     The track and thumb both start fully transparent so the scrollbar is
-     visually absent until the user hovers (or focuses) the scrollable
-     element. We keep a slim gutter reserved so reveal/hide doesn't cause
-     layout shift — the gutter just stays transparent until needed.
-     Tab strips and other places that want zero scrollbar regardless of
-     hover should opt into the `.scrollbar-hide` utility below. */
+  /* no ugly scrollbar */
   * {
     scrollbar-width: thin; /* Firefox */
     scrollbar-color: transparent transparent; /* Firefox */
@@ -125,8 +121,6 @@
   *::-webkit-scrollbar-thumb {
     background-color: transparent;
     border-radius: 9999px;
-    /* Padding-box border makes the visible thumb narrower than the track so
-       it reads as an overlay-style scrollbar, not a solid chunky rail. */
     border: 2px solid transparent;
     background-clip: padding-box;
     transition: background-color 150ms ease;
@@ -144,9 +138,6 @@
 }
 
 @layer utilities {
-  /* Hide the native scrollbar on horizontal strips (tab bars, chips, etc.)
-     where the scrollbar would otherwise dominate the visual hierarchy.
-     Edge-fade masks should be used to signal scrollability instead. */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -155,14 +146,7 @@
     display: none;
   }
 
-
-  /* Brush-stroke loader: a single organic curve that paints itself in
-     left-to-right, then continues in the same direction to "wipe" off the
-     canvas — creating one fluid, continuous brush motion. The two-keyframe
-     trick (offset 100 → 0 → -100 against dasharray 100) avoids any
-     opacity-snap flash at loop boundaries.
-     `transform-box: view-box` is required so SVG paths honor CSS
-     transforms the same way regular elements do. */
+  /* Brush-stroke loader */
   .paint-loader-stroke {
     stroke-dasharray: 100;
     stroke-dashoffset: 100;
@@ -173,6 +157,74 @@
     transform-origin: 0 0;
     animation: paint-loader-brush-move 2s cubic-bezier(0.65, 0, 0.35, 1)
       infinite;
+  }
+
+  /* Inline working indicator: a paint brush sweeps left/right with bristles
+     that drag opposite to motion, leaving a thin colored trail along the
+     baseline. The brush group's local origin sits at the bristle contact
+     point, so translate(X, baselineY) plants the tip on the ground and
+     rotate(...) swings the handle around it. */
+  .wi-brush-sweep {
+    transform-box: view-box;
+    transform-origin: 0 0;
+    animation: wi-brush-sweep 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95)
+      infinite;
+  }
+  .wi-brush-bristles {
+    transform-box: fill-box;
+    transform-origin: 50% 0%;
+    animation: wi-brush-flex 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .wi-paint-line {
+    stroke-dasharray: 40 40;
+    stroke-dashoffset: 40;
+    animation: wi-paint-draw 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+
+  @keyframes wi-brush-sweep {
+    0%,
+    100% {
+      transform: translate(22px, 26px) rotate(-16deg);
+    }
+    50% {
+      transform: translate(58px, 26px) rotate(16deg);
+    }
+  }
+  @keyframes wi-brush-flex {
+    0%,
+    50%,
+    100% {
+      transform: skewX(0deg);
+    }
+    25% {
+      transform: skewX(-16deg);
+    }
+    75% {
+      transform: skewX(16deg);
+    }
+  }
+  @keyframes wi-paint-draw {
+    0%,
+    100% {
+      stroke-dashoffset: 40;
+    }
+    50% {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wi-brush-sweep,
+    .wi-brush-bristles,
+    .wi-paint-line {
+      animation: none;
+    }
+    .wi-paint-line {
+      stroke-dashoffset: 0;
+    }
+    .wi-brush-sweep {
+      transform: translate(40px, 26px) rotate(0deg);
+    }
   }
 
   @keyframes paint-loader-sweep {
@@ -205,13 +257,7 @@
   }
 }
 
-/*
-  Suppress Sandpack's built-in loading overlay (cube animation).
-  CanvasLoadingOverlay is our custom replacement; we never want both showing.
-  Intentionally placed OUTSIDE @layer so this unlayered rule wins over
-  Sandpack's Stitches-injected (also unlayered) styles. The error overlay
-  uses different class names and is left untouched.
-*/
+/* Suppress Sandpack's built-in loading overlay (cube animation). */
 .sp-loading {
   display: none !important;
 }

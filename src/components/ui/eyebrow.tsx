@@ -6,7 +6,6 @@ export type EyebrowProps = HTMLAttributes<HTMLParagraphElement>;
 
 /**
  * Small uppercase label that sits above a heading or section.
- * Use sparingly — gives a section a category without competing with the title.
  */
 const Eyebrow = forwardRef<HTMLParagraphElement, EyebrowProps>(
   ({ className, ...props }, ref) => (

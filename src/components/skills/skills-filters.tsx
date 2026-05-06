@@ -13,9 +13,7 @@ import type { SkillsFiltersProps } from "@/components/skills/types/skill-table";
 export { hasActiveFilters } from "@/components/skills/utils/skills-filters";
 
 /**
- * Single filter bar reused on both Skills tabs. All dimensions live behind
- * one consolidated dropdown so the bar stays uncluttered (one search input,
- * one filter button) regardless of how many dimensions the tab supports.
+ * Single filter bar reused on both Skills tabs.
  */
 export function SkillsFilters({
   scope,

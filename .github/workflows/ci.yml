@@ -47,10 +47,8 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Security audit
+        run: pnpm security:audit
+
       - name: Test
         run: pnpm test
-        env:
-          # Required by crypto.ts; the test suite sets its own value via
-          # process.env in beforeAll, but the module-level import guard
-          # in some edge paths may read this. Use a throwaway 32-byte key.
-          ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=

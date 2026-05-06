@@ -1,8 +1,6 @@
 "use client";
 
 import { useRef, useState } from 'react';
-import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
 import { File as FileIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,69 +13,19 @@ import {
 } from "@/components/ui";
 import type { DesignDTO, FolderDTO } from "@/lib/workspace/types";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-import { useOptimisticFilesStore } from "@/stores/optimistic-files-store";
-import { deleteDesign, moveDesign, renameDesign } from "@/server/actions/designs";
+import { useRenameDesign, useDeleteDesign, useMoveDesign } from "@/components/workspace/canvas/hooks/use-design-mutations";
 
 import { InlineRenameInput } from "@/components/shared/inline-rename-input";
 import type { DesignRowProps } from "@/components/workspace/canvas/files-tree/types/files-tree";
 
 export function DesignRow({ projectId, design, folders, designs, depth }: DesignRowProps) {
-  const router = useRouter();
   const openTab = useWorkspaceStore((s) => s.openDesignTab);
-  const setDesignRename = useOptimisticFilesStore((s) => s.setDesignRename);
-  const clearDesignRename = useOptimisticFilesStore(
-    (s) => s.clearDesignRename,
-  );
-  const markDesignDeleted = useOptimisticFilesStore(
-    (s) => s.markDesignDeleted,
-  );
-  const unmarkDesignDeleted = useOptimisticFilesStore(
-    (s) => s.unmarkDesignDeleted,
-  );
-  const setDesignFolder = useOptimisticFilesStore((s) => s.setDesignFolder);
-  const clearDesignFolder = useOptimisticFilesStore(
-    (s) => s.clearDesignFolder,
-  );
   const [renaming, setRenaming] = useState(false);
   const renameTriggeredRef = useRef(false);
 
-  const rename = useMutation({
-    mutationFn: async (n: string) => {
-      const next = n.trim() || "Untitled";
-      await renameDesign(design.id, n);
-      return next;
-    },
-    onMutate: (n) => {
-      const next = n.trim() || "Untitled";
-      setDesignRename(design.id, next);
-      setRenaming(false);
-    },
-    onSuccess: (newName) => {
-      toast.success(`Renamed design to “${newName}”`);
-      router.refresh();
-    },
-    onError: (e) => {
-      clearDesignRename(design.id);
-      toast.error(e instanceof Error ? e.message : "Rename failed");
-    },
-  });
-  const remove = useMutation({
-    mutationFn: async () => {
-      await deleteDesign(design.id);
-      return design.name;
-    },
-    onMutate: () => {
-      markDesignDeleted(design.id);
-    },
-    onSuccess: (name) => {
-      toast.success(`Deleted “${name}”`);
-      router.refresh();
-    },
-    onError: (e) => {
-      unmarkDesignDeleted(design.id);
-      toast.error(e instanceof Error ? e.message : "Delete failed");
-    },
-  });
+  const rename = useRenameDesign(design, { onBeforeCommit: () => setRenaming(false) });
+  const remove = useDeleteDesign(design);
+  const moveDesign = useMoveDesign();
 
   return (
     <ContextMenu>
@@ -91,10 +39,6 @@ export function DesignRow({ projectId, design, folders, designs, depth }: Design
           }}
           onDoubleClick={() => !renaming && openTab(projectId, design.id)}
           className="group flex w-fit max-w-full cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-sm text-ink hover:bg-surface-sunken/60"
-          // marginLeft (outside the chip) instead of paddingLeft (inside),
-          // so the hover background hugs the icon + name and the depth
-          // indent doesn't paint into the chip. +18 vs FolderRow's 0 lines
-          // the file icon up under the folder icon (skipping chevron+gap).
           style={{ marginLeft: depth * 12 + 18 }}
         >
           <FileIcon className="size-3.5 shrink-0 text-ink-muted" />
@@ -152,16 +96,13 @@ export function DesignRow({ projectId, design, folders, designs, depth }: Design
           <>
             <ContextMenuSeparator />
             <ContextMenuItem
-              onSelect={async () => {
-                setDesignFolder(design.id, null);
-                try {
-                  await moveDesign(design.id, null);
-                  router.refresh();
-                } catch (err) {
-                  clearDesignFolder(design.id);
-                  toast.error(err instanceof Error ? err.message : "Move failed");
-                }
-              }}
+              onSelect={() =>
+                moveDesign.mutate({
+                  designId: design.id,
+                  targetFolderId: null,
+                  designName: design.name,
+                })
+              }
             >
               Move to root
             </ContextMenuItem>

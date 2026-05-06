@@ -18,26 +18,21 @@ import {
   Label,
 } from "@/components/ui";
 import { deleteAccountAction } from "@/server/actions/auth";
+import type { DeleteAccountDialogProps } from "@/components/settings/types/settings";
+import { buildSchema } from "@/components/settings/utils/delete-account";
 
-const ConfirmSchema = z.object({
-  confirmation: z.literal("DELETE", {
-    errorMap: () => ({ message: 'Type DELETE to confirm' }),
-  }),
-});
-
-type ConfirmInput = z.infer<typeof ConfirmSchema>;
-
-interface DeleteAccountDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-export function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogProps) {
+export function DeleteAccountDialog({
+  open,
+  onOpenChange,
+  userEmail,
+}: DeleteAccountDialogProps) {
   const [isPending, startTransition] = useTransition();
+  const schema = buildSchema(userEmail);
+  type ConfirmInput = z.infer<typeof schema>;
 
   const form = useForm<ConfirmInput>({
-    resolver: zodResolver(ConfirmSchema),
-    defaultValues: { confirmation: "" as "DELETE" },
+    resolver: zodResolver(schema),
+    defaultValues: { email: "" },
   });
 
   function handleOpenChange(next: boolean) {
@@ -46,10 +41,10 @@ export function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogP
     onOpenChange(next);
   }
 
-  function onSubmit() {
+  function onSubmit(values: ConfirmInput) {
     startTransition(async () => {
       try {
-        await deleteAccountAction();
+        await deleteAccountAction(values.email);
       } catch {
         toast.error("Failed to delete account. Please try again.");
       }
@@ -70,20 +65,22 @@ export function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogP
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="delete-confirm" className="text-sm text-ink">
-              Type <span className="font-mono font-semibold">DELETE</span> to confirm
+              Type your email{" "}
+              <span className="font-mono font-semibold text-ink">{userEmail}</span> to confirm
             </Label>
             <Input
               id="delete-confirm"
+              type="email"
               autoComplete="off"
               spellCheck={false}
-              placeholder="DELETE"
+              placeholder={userEmail}
               disabled={isPending}
-              {...form.register("confirmation")}
-              aria-invalid={!!form.formState.errors.confirmation}
+              {...form.register("email")}
+              aria-invalid={!!form.formState.errors.email}
             />
-            {form.formState.errors.confirmation ? (
+            {form.formState.errors.email ? (
               <p className="text-xs text-destructive">
-                {form.formState.errors.confirmation.message}
+                {form.formState.errors.email.message}
               </p>
             ) : null}
           </div>

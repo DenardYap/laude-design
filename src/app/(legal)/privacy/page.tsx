@@ -4,7 +4,7 @@ import { LegalSection } from "../_components/legal-section";
 
 export const metadata = { title: "Privacy Policy · Laude Design" };
 
-const LAST_UPDATED = "May 4, 2026";
+const LAST_UPDATED = "May 5, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
         Design,&rdquo; &ldquo;we,&rdquo; &ldquo;us&rdquo;) collects, uses, and
         protects your information when you use the hosted version of the
         product. We try to collect as little as possible &mdash; only what we
-        need to keep your account, your projects, and your API keys
+        need to keep your account, your projects, and your encrypted API keys
         working.
       </p>
 
@@ -77,19 +77,20 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="3. API keys">
+      <LegalSection title="3. API keys and encryption">
         <p>
-          API keys you add are stored in your browser&rsquo;s local storage.
-          When you send a message, your key is transmitted to our server as a
-          request header and used in memory to call your chosen AI provider.
-          Keys are never written to our database and are never displayed in
-          full.
+          API keys you add are encrypted at rest using AES-256-GCM. The
+          encryption key is held in a separate environment-level secret outside
+          the application database &mdash; only the encrypted payload is
+          persisted in the database. The plaintext key is decrypted in memory
+          solely for the duration of the outbound request to the corresponding
+          provider, and is never logged or returned to the browser. Only the
+          last four characters of each key are stored as a display hint to help
+          you identify which key is configured.
         </p>
         <p>
-          You can remove a stored key at any time from the API Keys section of
-          the workspace. We recommend using a dedicated key per provider and
-          revoking it from the provider&rsquo;s dashboard if it may be
-          compromised.
+          You can rotate or delete a stored key at any time from the API Keys
+          section of the workspace.
         </p>
       </LegalSection>
 

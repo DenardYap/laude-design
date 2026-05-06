@@ -1,8 +1,6 @@
-export interface ActiveSkill {
-  name: string;
-  description: string | null;
-  content: string;
-}
+import type { ActiveSkill } from "./types/system-prompt";
+
+export type { ActiveSkill };
 
 // Appended to the base system prompt only when the user has flipped
 // "Self-critique" on in the composer. We deliberately keep this short and

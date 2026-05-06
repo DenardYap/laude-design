@@ -1,9 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Github } from "lucide-react";
+import { ArrowLeft, Github, TriangleAlert } from "lucide-react";
 
-import { Card, CardContent } from "@/components/ui";
 import { auth, signIn } from "@/lib/auth";
 import { GoogleIcon } from "@/components/auth/google-icon";
 import { OAuthButton } from "@/components/auth/oauth-button";
@@ -20,9 +19,34 @@ async function signInWithGithub() {
   await signIn("github", { redirectTo: "/projects" });
 }
 
-export default async function SignInPage() {
+// Auth.js v5 surfaces sign-in failures via the `error` query string. We only
+// special-case the message users will actually hit on this page; everything
+// else falls back to a generic copy so we never render an opaque internal
+// error code at the user.
+function describeAuthError(code: string | undefined): string | null {
+  if (!code) return null;
+  switch (code) {
+    case "OAuthAccountNotLinked":
+      return "This email already has an account with a different sign-in method. Sign in with the original provider you used the first time.";
+    case "AccessDenied":
+      return "Sign-in was cancelled or denied by the provider. Please try again.";
+    case "Configuration":
+      return "Sign-in is temporarily unavailable due to a configuration issue. Please try again shortly.";
+    default:
+      return "Something went wrong signing you in. Please try again.";
+  }
+}
+
+interface SignInPageProps {
+  searchParams: Promise<{ error?: string }>;
+}
+
+export default async function SignInPage({ searchParams }: SignInPageProps) {
   const session = await auth();
   if (session?.user) redirect("/projects");
+
+  const { error } = await searchParams;
+  const errorMessage = describeAuthError(error);
 
   return (
     <main className="relative grid min-h-[100dvh] place-items-center px-4 py-8 sm:px-6">
@@ -51,6 +75,16 @@ export default async function SignInPage() {
             Sign in to access your projects, API keys, and Skills.
           </p>
         </div>
+
+        {errorMessage ? (
+          <div
+            role="alert"
+            className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-sm text-ink"
+          >
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <span>{errorMessage}</span>
+          </div>
+        ) : null}
 
         <div className="flex flex-col gap-3">
           <form action={signInWithGoogle}>

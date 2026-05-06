@@ -1,23 +1,22 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { limit as rateLimit } from "@/lib/ratelimit";
+import { getClientIp, limitByIp } from "@/lib/ratelimit";
 
 // ---------------------------------------------------------------------------
 // Security headers
 // ---------------------------------------------------------------------------
 
 /**
- * Build a per-request Content-Security-Policy with a random nonce so
- * `script-src 'strict-dynamic'` allows only Next.js's own inline scripts.
+ * Build a per-request Content-Security-Policy with a random nonce.
+ *
+ * Two key layers of XSS mitigation:
+ *  - `script-src 'nonce-...' 'strict-dynamic'` — injected scripts without the
+ *    nonce are blocked at execution time, even if XSS lands in the page.
+ *  - `connect-src 'self'` — even if a script does execute, the browser refuses
+ *    to POST stolen data (e.g. API keys) to any attacker-controlled origin.
  *
  * The nonce is also forwarded as `x-nonce` so the Next.js App Router can
  * stamp it on every `<script>` tag it emits during SSR.
- *
- * Key directives for localStorage protection:
- *  - `connect-src 'self' ...` — even if XSS lands, the browser refuses to
- *    POST the user's API key to any attacker-controlled origin.
- *  - `script-src 'nonce-...' 'strict-dynamic'` — injected scripts that don't
- *    carry the nonce are blocked at execution time.
  */
 function buildCsp(nonce: string): string {
   const directives = [
@@ -34,6 +33,7 @@ function buildCsp(nonce: string): string {
     [
       "connect-src 'self'",
       "https://*.public.blob.vercel-storage.com",
+      "https://api.github.com",
     ].join(" "),
     // Sandpack preview iframes live on csb.app and versioned bundler
     // subdomains of codesandbox.io (e.g. 2-19-8-sandpack.codesandbox.io).
@@ -75,13 +75,32 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
 
-  // Apply rate limiting to API routes.
+  // Coarse per-IP rate limit on /api/* as a first line of defense.
+  // The expensive endpoints (chat) layer per-USER limiting on top inside
+  // their handlers — see `limitByUser` in `src/lib/ratelimit.ts`.
   if (request.nextUrl.pathname.startsWith("/api")) {
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-      request.headers.get("x-real-ip") ??
-      "127.0.0.1";
-    const { success, limit, reset, remaining } = await rateLimit(ip);
+    const ip = getClientIp(request.headers);
+
+    // No trustworthy forwarded header. On Vercel this never happens; if it
+    // happens in production it means the request bypassed the platform
+    // edge or a custom proxy stripped the headers. Failing closed forces
+    // the operator to notice + fix proxy config rather than silently
+    // funneling every caller into a shared bucket and DoS-ing themselves
+    // the next time one bot decides to scrape.
+    if (!ip) {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          { error: "Unable to identify client" },
+          { status: 400 },
+        );
+      }
+      // Dev: just pass through so localhost / curl / tests aren't blocked.
+      const res = NextResponse.next({ request: { headers: requestHeaders } });
+      applySecurityHeaders(res, nonce);
+      return res;
+    }
+
+    const { success, limit, reset, remaining } = await limitByIp(ip);
 
     if (!success) {
       return NextResponse.json(

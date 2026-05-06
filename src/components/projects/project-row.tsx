@@ -22,9 +22,6 @@ export function ProjectRow({ project, zebra, onRequestDelete }: ProjectRowProps)
         "hover:bg-surface-sunken",
       )}
     >
-      {/* Full-row link: covers the entire row so clicking anywhere (except the
-          actions menu) navigates. The visible content sits above it via z-index
-          so the title text remains selectable and the arrow icon stays visible. */}
       <Link
         href={`/projects/${project.id}`}
         aria-label={`Open ${project.name}`}

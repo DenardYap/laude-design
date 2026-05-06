@@ -26,7 +26,6 @@ export function PublicSkillActions({
   const [like, setLike] = useState({
     liked: initialLiked,
     count: initialLikes,
-    /** Mirrors the server's "has this user ever liked" state. */
     everLiked: initialLiked,
     pending: false,
   });

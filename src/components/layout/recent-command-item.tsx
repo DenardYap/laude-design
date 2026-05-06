@@ -7,9 +7,6 @@ import type { RecentCommandItemProps } from "@/components/layout/types/layout";
 import { getNavPage } from "@/components/layout/utils/nav-pages";
 
 export function RecentCommandItem({ row, onSelect }: RecentCommandItemProps) {
-  // Use the entry's native icon (the project folder, or the page's own icon)
-  // so the user can scan the list visually and still tell which type each
-  // row is — the "Recently used" heading alone doesn't communicate that.
   const Icon =
     row.kind === "project" ? FolderKanban : (getNavPage(row.href)?.icon ?? FolderKanban);
 

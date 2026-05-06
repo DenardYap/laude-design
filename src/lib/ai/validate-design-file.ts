@@ -1,5 +1,9 @@
 import * as ts from "typescript";
 
+import type { DesignFileLintError } from "./types/validate-design-file";
+
+export type { DesignFileLintError };
+
 /**
  * Static checks we run before persisting an agent-written design file.
  *
@@ -14,20 +18,6 @@ import * as ts from "typescript";
  * Intentionally lightweight: no full type-checking, no resolving sibling
  * files, no semantic analysis. We want this to add ~10–30ms, not seconds.
  */
-
-export interface DesignFileLintError {
-  /** Stable code so callers can branch (and prompts can reference it). */
-  code:
-    | "syntax"
-    | "missing-default-export"
-    | "disallowed-import"
-    | "invalid-extension";
-  message: string;
-  /** 1-indexed; only present for parser diagnostics. */
-  line?: number;
-  /** 1-indexed; only present for parser diagnostics. */
-  column?: number;
-}
 
 /**
  * The sandbox provides only these dependencies (mirrors system-prompt.ts

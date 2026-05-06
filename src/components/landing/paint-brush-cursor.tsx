@@ -2,13 +2,22 @@
  * The brush itself. Its tip sits at (TIP_X, TIP_Y) in this SVG's coordinate
  * space, which is what the wrapper translates to the pointer position.
  */
-export function PaintBrushCursor({ color }: { color: string }) {
+export function PaintBrushCursor({
+  color,
+  className,
+  style,
+}: {
+  color: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   return (
     <svg
       width={60}
       height={60}
       viewBox="0 0 60 60"
-      style={{ overflow: "visible" }}
+      className={className}
+      style={{ overflow: "visible", ...style }}
     >
       <defs>
         <linearGradient id="brush-handle" x1="0" y1="0" x2="1" y2="1">

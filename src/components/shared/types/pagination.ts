@@ -3,13 +3,9 @@ export interface UsePaginationResult<T> {
   page: number;
   setPage: (page: number) => void;
   pageSize: number;
-  /** Total number of items across all pages. */
   total: number;
-  /** Total number of pages (>= 1, even when total === 0). */
   totalPages: number;
-  /** Items belonging to the current page. */
   pageItems: T[];
-  /** 1-indexed range of items shown on the current page (e.g. 26–50). */
   rangeStart: number;
   rangeEnd: number;
 }

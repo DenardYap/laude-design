@@ -1,68 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
-import { Copy } from "lucide-react";
-import type { UIMessage } from "ai";
-import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { IconButton } from "@/components/ui";
-import { collectText } from "@/components/workspace/chat/utils/message-utils";
+import { collectText, dedupeScreenshotParts } from "@/components/workspace/chat/utils/message-utils";
+import { CopyMessageButton } from "@/components/workspace/chat/copy-message-button";
 import { MessagePartView } from "@/components/workspace/chat/message-part-view";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-// Keep only the last screenshotDesign call per rationale. The agent sometimes
-// calls the tool twice in one turn with an identical rationale (e.g. a
-// re-review after a hot-reload delay); showing both looks like a rendering bug.
-function dedupeScreenshotParts(parts: UIMessage["parts"]): UIMessage["parts"] {
-  const lastIdxByRationale = new Map<string, number>();
-  parts.forEach((part, i) => {
-    const p = part as { type?: string; input?: { rationale?: string } };
-    if (p.type === "tool-screenshotDesign") {
-      lastIdxByRationale.set(p.input?.rationale ?? "", i);
-    }
-  });
-  return parts.filter((part, i) => {
-    const p = part as { type?: string; input?: { rationale?: string } };
-    if (p.type !== "tool-screenshotDesign") return true;
-    return lastIdxByRationale.get(p.input?.rationale ?? "") === i;
-  });
-}
-
-// ---------------------------------------------------------------------------
-// CopyMessageButton
-// ---------------------------------------------------------------------------
-
-function CopyMessageButton({ text }: { text: string }) {
-  return (
-    <IconButton
-      aria-label="Copy message"
-      className="size-6 opacity-0 transition-opacity group-hover:opacity-100"
-      icon={<Copy className="size-3" />}
-      onClick={() => {
-        void navigator.clipboard.writeText(text);
-        toast.success("Copied");
-      }}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// MessageRow — public API
-// ---------------------------------------------------------------------------
+import type { MessageRowProps } from "@/components/workspace/chat/types/messages";
 
 export function MessageRow({
   message,
   isStreaming,
   sessionId,
-}: {
-  message: UIMessage;
-  isStreaming: boolean;
-  sessionId: string;
-}) {
+}: MessageRowProps) {
   const isUser = message.role === "user";
   const text = collectText(message.parts);
   const parts = useMemo(

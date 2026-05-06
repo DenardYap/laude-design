@@ -13,8 +13,6 @@ export const PALETTE: RGB[] = [
 export const BRUSH_RADIUS = 13;
 export const BRISTLE_COUNT = 18;
 
-// The brush tip's location inside the SVG, used to align the rendered
-// brush so its tip sits exactly under the pointer.
 export const TIP_X = 8;
 export const TIP_Y = 52;
 

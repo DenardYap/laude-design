@@ -9,28 +9,12 @@ import { PALETTE, BRUSH_RADIUS, BRISTLE_COUNT, TIP_X, TIP_Y, makeBristles } from
 import type { Point, Drip } from "@/components/landing/types/paint-canvas";
 
 /**
- * A full-viewport paint surface for the landing page.
- *
- * The native cursor is hidden over the canvas and replaced with a custom
- * paintbrush SVG (see PaintBrushCursor). Click + drag deposits a
- * textured stroke composed of many "bristle" sub-strokes; paint depletes
- * along the stroke, splays as bristles drop out, and occasionally drips.
- *
- * Interactive elements above the canvas (Sign in, Get started, Star on
- * GitHub) stay clickable because their wrappers are pointer-events-none
- * while the buttons themselves are pointer-events-auto — clicks on empty
- * space fall through to the canvas, clicks on buttons do not.
+ * Mimics the physics of a real paintbrush on a canvas.
  */
 export function PaintCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
-  // Drives a re-render of the brush-tip swatch whenever we cycle colors.
   const [colorIndex, setColorIndex] = useState(0);
-  // Mount the painting surface only on devices with a real pointer. Touch
-  // phones don't have a hover/cursor, the brush UX is awkward at thumb
-  // scale, and `touch-none` on the canvas would block page scrolling. We
-  // resolve this in an effect so SSR markup matches the first client
-  // render (which always reports `false`).
   const [enabled, setEnabled] = useState(false);
 
   const stateRef = useRef({

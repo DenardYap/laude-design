@@ -1,12 +1,6 @@
-export type AttachmentKind = "screenshot" | "upload" | "sketch";
+import type { AttachmentKind, UploadedFile } from "./types/uploads";
 
-export interface UploadedFile {
-  url: string;
-  name: string;
-  mimeType: string;
-  size: number;
-  kind?: AttachmentKind;
-}
+export type { AttachmentKind, UploadedFile };
 
 export async function uploadAttachment(projectId: string, file: File): Promise<UploadedFile> {
   const fd = new FormData();

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   AiProviderEnum,
   ApiKeySchema,
+  expiryFromLifetime,
   ProjectSchema,
   SkillSchema,
   SkillUpdateSchema,
@@ -138,6 +139,62 @@ describe("ApiKeySchema", () => {
 
   it("rejects missing provider", () => {
     expect(ApiKeySchema.safeParse({ secret: "validkeyhere" }).success).toBe(false);
+  });
+
+  it("defaults lifetime to 'never' when omitted", () => {
+    const result = ApiKeySchema.safeParse({
+      provider: "OPENAI",
+      secret: "sk-test1234567890",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.lifetime).toBe("never");
+    }
+  });
+
+  it("accepts every supported lifetime value", () => {
+    for (const lifetime of ["never", "7d", "14d", "30d"] as const) {
+      expect(
+        ApiKeySchema.safeParse({
+          provider: "OPENAI",
+          secret: "sk-test1234567890",
+          lifetime,
+        }).success,
+      ).toBe(true);
+    }
+  });
+
+  it("rejects an unknown lifetime value", () => {
+    expect(
+      ApiKeySchema.safeParse({
+        provider: "OPENAI",
+        secret: "sk-test1234567890",
+        lifetime: "60d",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("expiryFromLifetime", () => {
+  const fixedNow = new Date("2026-01-01T00:00:00.000Z");
+
+  it("returns null for the 'never' lifetime", () => {
+    expect(expiryFromLifetime("never", fixedNow)).toBeNull();
+  });
+
+  it("returns 7 days from now for '7d'", () => {
+    const got = expiryFromLifetime("7d", fixedNow);
+    expect(got?.toISOString()).toBe("2026-01-08T00:00:00.000Z");
+  });
+
+  it("returns 14 days from now for '14d'", () => {
+    const got = expiryFromLifetime("14d", fixedNow);
+    expect(got?.toISOString()).toBe("2026-01-15T00:00:00.000Z");
+  });
+
+  it("returns 30 days from now for '30d'", () => {
+    const got = expiryFromLifetime("30d", fixedNow);
+    expect(got?.toISOString()).toBe("2026-01-31T00:00:00.000Z");
   });
 });
 

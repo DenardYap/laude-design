@@ -20,6 +20,7 @@ model User {
   accounts   Account[]
   sessions   Session[]
   projects   Project[]
+  apiKeys    ApiKey[]
   skills     Skill[]
   skillLikes SkillLike[]
   skillSaves SkillSave[]
@@ -70,6 +71,28 @@ enum AiProvider {
   CLAUDE
   GEMINI
   OPENAI
+}
+
+model ApiKey {
+  id         String     @id @default(cuid())
+  userId     String
+  provider   AiProvider
+  ciphertext String     @db.Text
+  lastFour   String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  // Optional auto-expiry. NULL means the key never expires automatically.
+  // The chat route checks this on every request and lazy-deletes any row
+  // whose expiry has passed, so an expired key becomes immediately
+  // unusable even if a periodic cleanup job hasn't run yet.
+  expiresAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  // Indexed so the optional cleanup sweep (or future cron job) can find
+  // every expired row across the whole table without a full scan.
+  @@index([expiresAt])
 }
 
 model Project {

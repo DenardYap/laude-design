@@ -1,31 +1,11 @@
-import { KeyRound, ArrowRight, AlertTriangle, Clock, WifiOff } from "lucide-react";
-import Link from "next/link";
+import { KeyRound, AlertTriangle, Clock, WifiOff } from "lucide-react";
 import { match } from "ts-pattern";
 
-import {
-  type ChatError,
-  PROVIDER_DISPLAY,
-} from "@/components/workspace/chat/utils/chat-errors";
+import { ConfigureKeysLink } from "@/components/workspace/chat/configure-keys-link";
+import { providerName } from "@/components/workspace/chat/utils/chat-errors";
+import type { ChatErrorBannerProps } from "@/components/workspace/chat/types/messages";
 
-function providerName(provider: string) {
-  return PROVIDER_DISPLAY[provider] ?? provider;
-}
-
-function ConfigureKeysLink({ label = "Configure API keys" }: { label?: string }) {
-  return (
-    <Link
-      href="/api-keys"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs font-medium text-ink underline-offset-2 hover:underline"
-    >
-      {label}
-      <ArrowRight className="size-3" />
-    </Link>
-  );
-}
-
-export function ChatErrorBanner({ error }: { error: ChatError }) {
+export function ChatErrorBanner({ error }: ChatErrorBannerProps) {
   const content = match(error)
     .with({ type: "api-key-missing" }, ({ provider }) => ({
       icon: <KeyRound className="mt-0.5 size-4 shrink-0 text-destructive" />,

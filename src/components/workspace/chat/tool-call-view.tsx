@@ -27,14 +27,6 @@ export function ToolCallView({
   const pastLabel = labelOverride?.past ?? display.pastLabel;
   const Icon = display.icon;
 
-  // The AI SDK marks a tool part as still pending while it's in either
-  // 'input-streaming' or 'input-available'. Once it resolves it transitions
-  // to 'output-available' / 'output-error' / 'output-denied'. If the user
-  // hits Stop mid-call, the part is frozen in an input-* state but the chat
-  // status flips to 'ready'/'error' — so we also treat any in-flight tool
-  // as "done" once streaming ends, surfacing the past-tense label without
-  // an animation. This matches the user's mental model: the work either
-  // finished or isn't happening any more.
   const isPending =
     isStreaming &&
     (anyPart.state === "input-streaming" ||

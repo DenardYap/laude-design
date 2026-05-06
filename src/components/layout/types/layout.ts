@@ -7,8 +7,6 @@ export interface NavPage {
 }
 
 export interface GlobalCommandPaletteProps {
-  /** All of the user's projects, freshest first. Passed in from the server
-   * layout so the palette doesn't need its own client-side fetch. */
   projects: { id: string; name: string }[];
 }
 
@@ -28,9 +26,8 @@ export interface TopbarProps {
     email?: string | null;
     image?: string | null;
   };
-  /** All of the user's projects, freshest first. Powers the command palette's
-   * "Projects" and "Recently used" groups. */
   projects: { id: string; name: string }[];
+  starCount?: number;
 }
 
 export interface UserMenuProps {
@@ -48,3 +45,41 @@ export interface SidebarBodyProps {
   showCollapseToggle: boolean;
   onToggleCollapse: () => void;
 }
+
+export type SidebarMobileProps = {
+  pathname: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+export type SidebarCollapseToggleProps = {
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+};
+
+export type SidebarDesktopProps = {
+  pathname: string;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+};
+
+export type SidebarLogoProps = {
+  collapsed: boolean;
+};
+
+export type SidebarNavProps = {
+  pathname: string;
+  collapsed: boolean;
+};
+
+export type TopbarGithubButtonsProps = {
+  starCount: number | undefined;
+};
+
+export type TopbarMobileNavProps = {
+  onMenuOpen: () => void;
+};
+
+export type TopbarSearchControlsProps = {
+  onOpenCommandPalette: () => void;
+};

@@ -1,7 +1,7 @@
 import type { ModelMessage } from "ai";
 import { describe, expect, it } from "vitest";
 
-import { estimateTokens } from "./context-summarizer";
+import { estimateTokens } from "./tokens";
 
 // Helpers to build ModelMessage fixtures without depending on the AI SDK internals
 function userMsg(content: string | object): ModelMessage {

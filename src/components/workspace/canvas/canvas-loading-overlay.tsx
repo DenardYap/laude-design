@@ -7,10 +7,7 @@ import { BrushStrokeLoader } from "@/components/workspace/canvas/brush-stroke-lo
 import type { Phase, CanvasLoadingOverlayProps } from "@/components/workspace/canvas/types/canvas-loading-overlay";
 
 const FADE_MS = 280;
-// Minimum on-screen time so the overlay doesn't flash for fast bundles.
 const MIN_VISIBLE_MS = 600;
-// Hard ceiling — even if Sandpack never signals ready (slow network, timeout)
-// we always get out of the user's way after this long.
 const MAX_VISIBLE_MS = 12_000;
 
 /**
@@ -39,7 +36,6 @@ export function CanvasLoadingOverlay({ ready = false }: CanvasLoadingOverlayProp
     }, remaining);
   }, []);
 
-  // Primary ready signal from DesignerInternals (sandpack.status or HMR timer).
   useEffect(() => {
     if (ready) startFade();
   }, [ready, startFade]);

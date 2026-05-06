@@ -3,8 +3,11 @@ import { match } from "ts-pattern";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import type { LanguageModel } from "ai";
 import type { AiProvider } from "@/lib/validators";
+
+import type { InternalModel } from "./types/internal-models";
+
+export type { InternalModel };
 
 // "Internal" models are the small/cheap models we use for non-user-facing work
 // like session titling and rolling-summary generation. We never expose these
@@ -24,12 +27,6 @@ const PROVIDER_PREFERENCE: readonly AiProvider[] = [
   "GEMINI",
   "OPENAI",
 ] as const;
-
-export interface InternalModel {
-  provider: AiProvider;
-  modelId: string;
-  model: LanguageModel;
-}
 
 /**
  * Resolves a small/cheap model for internal background tasks (titles,

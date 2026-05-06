@@ -24,12 +24,6 @@ import type { DesignDTO, FolderDTO } from "@/lib/workspace/types";
  *   4. Every time new server-rendered props arrive, the consumer calls
  *      `reconcile()` to drop overlays whose state now matches the server
  *      (or whose target item disappeared, making the overlay meaningless).
- *
- * We deliberately use a single module-level store rather than co-located
- * React state because the same item can be mutated in three places (root
- * FilesTree, FolderRow context menu, CanvasPane toolbar), and prop-drilling
- * optimistic state through the tree would be worse than any of the
- * alternatives.
  */
 
 export const PENDING_FOLDER_PREFIX = "temp-folder-";
@@ -250,10 +244,6 @@ export const useOptimisticFilesStore = create<OptimisticFilesState>(
         const serverDesignMap = new Map(serverDesigns.map((d) => [d.id, d]));
 
         // Drop pending creates whose real id is now present server-side.
-        // We only keep temp-prefixed entries (unconfirmed creates) and
-        // entries that have been confirmed but haven't yet shown up in the
-        // server prop — the latter keep the tree stable during the render
-        // gap between `onSuccess` and the next `router.refresh()` tick.
         const nextPendingFolders = s.pendingFolders.filter(
           (f) => !serverFolderMap.has(f.id),
         );
@@ -262,8 +252,6 @@ export const useOptimisticFilesStore = create<OptimisticFilesState>(
         );
 
         // Drop deletion markers once the server confirms the item is gone.
-        // Also drop markers that point at temp ids which never materialised
-        // (failed create → user asked to delete the failed temp → cleanup).
         const nextDeletedFolders = new Set<string>();
         for (const id of s.deletedFolderIds) {
           if (serverFolderMap.has(id)) nextDeletedFolders.add(id);
@@ -273,8 +261,8 @@ export const useOptimisticFilesStore = create<OptimisticFilesState>(
           if (serverDesignMap.has(id)) nextDeletedDesigns.add(id);
         }
 
-        // Drop rename overrides that match the server's current name, or
-        // whose target item no longer exists.
+        // Drop rename overrides that match the server's current name.
+        // So we don't fire unnecessary requests to the server.
         const nextFolderRenames: Record<string, string> = {};
         for (const [id, name] of Object.entries(s.folderRenameOverrides)) {
           const server = serverFolderMap.get(id);
@@ -300,9 +288,7 @@ export const useOptimisticFilesStore = create<OptimisticFilesState>(
         }
 
         // Drop move overrides whose destination matches the server, whose
-        // target no longer exists (unless it's a not-yet-confirmed temp id),
-        // or whose destination parent itself has disappeared (e.g. someone
-        // deleted the target folder in another tab before the move committed).
+        // target no longer exists, or whose destination parent itself has disappeared.
         const nextFolderParents: Record<string, string | null> = {};
         for (const [id, parentId] of Object.entries(s.folderParentOverrides)) {
           const server = serverFolderMap.get(id);

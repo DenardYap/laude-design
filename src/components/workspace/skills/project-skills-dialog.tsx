@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import {
@@ -13,10 +13,8 @@ import {
   DialogDescription,
   EmptyState,
 } from "@/components/ui";
-import {
-  getProjectSkillStates,
-  setProjectSkillEffective,
-} from "@/server/actions/skills";
+import { getProjectSkillStates } from "@/server/actions/skills";
+import { useToggleProjectSkill } from "@/components/workspace/skills/hooks/use-toggle-project-skill";
 import type { ProjectSkillsDialogProps } from "@/components/workspace/skills/types/skills";
 import { SkillRow } from "@/components/workspace/skills/skill-row";
 import { SkillListSkeleton } from "@/components/workspace/skills/skill-list-skeleton";
@@ -26,31 +24,13 @@ export function ProjectSkillsDialog({
   open,
   onOpenChange,
 }: ProjectSkillsDialogProps) {
-  const queryClient = useQueryClient();
-
   const { data: skills, isLoading } = useQuery({
     queryKey: ["project-skill-states", projectId],
     queryFn: () => getProjectSkillStates(projectId),
     enabled: open,
   });
 
-  const toggle = useMutation({
-    mutationFn: ({
-      skillId,
-      applied,
-    }: {
-      skillId: string;
-      applied: boolean;
-    }) => setProjectSkillEffective(projectId, skillId, applied),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: ["project-skill-states", projectId],
-      });
-    },
-    onError: (e) => {
-      toast.error(e instanceof Error ? e.message : "Failed to update skill");
-    },
-  });
+  const toggle = useToggleProjectSkill(projectId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

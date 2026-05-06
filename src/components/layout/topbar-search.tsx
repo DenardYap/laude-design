@@ -5,18 +5,11 @@ import { Search } from "lucide-react";
 
 import { useUiStore } from "@/stores/ui-store";
 
-/**
- * Looks like a rounded search input but is actually a button. Clicking (or
- * focusing + pressing Enter/Space) opens the global command palette. The
- * trailing badge advertises the ⌘K shortcut so the affordance is discoverable
- * without a label.
- */
 export function TopbarSearch() {
   const setOpen = useUiStore((s) => s.setCommandPaletteOpen);
   const [shortcutLabel, setShortcutLabel] = useState("⌘K");
 
-  // Show "Ctrl K" on Windows/Linux. Runs once on mount; keeps SSR markup
-  // stable (defaults to ⌘K) and only swaps after hydration.
+  // Show "Ctrl K" on Windows/Linux but ⌘K for Mac.
   useEffect(() => {
     const isMac =
       typeof navigator !== "undefined" &&

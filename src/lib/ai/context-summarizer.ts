@@ -1,122 +1,23 @@
-import { generateText, type ModelMessage, type LanguageModel } from "ai";
+import { generateText, type ModelMessage } from "ai";
 
-// === Tunables ============================================================
+import type {
+  SummarizeArgs,
+  RollingSummaryArgs,
+  RollingSummaryResult,
+} from "./types/context-summarizer";
+import {
+  CHARS_PER_TOKEN,
+  estimateTokens,
+  messageTokens,
+} from "./utils/tokens";
 
-// Trigger summarization once total tokens reach this fraction of the model's
-// context window. 60% leaves comfortable headroom for the next turn + tool
-// outputs + the model's response.
-const TRIGGER_RATIO = 0.2;
+export type { RollingSummaryArgs, RollingSummaryResult };
+export { estimateTokens };
 
-// After summarization, the rolling summary + remaining tail must fit under
-// this fraction of the context window. We aim for 45% so the next turn has
-// breathing room before the next trigger fires.
-const TARGET_RATIO = 0.1;
-
-// Hard cap on the rolling summary itself. ~1000 chars ≈ 250 tokens.
+const TRIGGER_RATIO = 0.6;
+const TARGET_RATIO = 0.45;
 const SUMMARY_MAX_CHARS = 1000;
-
-// Tokens we reserve for the summary placeholder when sizing the tail. Slightly
-// larger than SUMMARY_MAX_CHARS / 4 to be safe.
 const SUMMARY_RESERVED_TOKENS = 300;
-
-// === Token estimation ====================================================
-
-// Rough heuristic: 1 token ≈ 4 characters. Good enough for trigger decisions
-// across all providers; we never need exact counts.
-const CHARS_PER_TOKEN = 4;
-
-// Per-image token allowance. Vision models (Claude, GPT-4o, Gemini) charge
-// roughly 1k–1.5k tokens for a typical screenshot-sized image — we round up
-// to keep the trigger from firing late on image-heavy conversations. The
-// `lastInputTokens` floor will correct any drift after the first real step.
-const TOKENS_PER_IMAGE = 1500;
-
-function textOfPart(part: unknown): string {
-  if (!part || typeof part !== "object") return "";
-  const p = part as Record<string, unknown>;
-  // TextPart, ReasoningPart
-  if (typeof p.text === "string") return p.text;
-  // ToolCallPart — count the JSON-stringified input
-  if (p.type === "tool-call" && p.input !== undefined) {
-    try {
-      return JSON.stringify(p.input);
-    } catch {
-      return "";
-    }
-  }
-  return "";
-}
-
-// Returns the rough provider-billed token cost for a single message part.
-//
-// Three shapes need special handling:
-//  1. `file` / `image` parts → flat per-image allowance. The base64 length
-//     is a wildly unreliable proxy for the model's image tokenization (a
-//     1024² PNG is many MB of base64 but only ~1.5k tokens).
-//  2. `tool-result` parts whose `output` carries multimodal content
-//     (e.g. `screenshotDesign` returns `{ type: "content", value: [text,
-//     image-data] }`). JSON-stringifying that output would count the full
-//     base64 string as text — easily 25k+ "tokens" per screenshot — and
-//     blow the trigger every turn the screenshot is in scope. Walk the
-//     output recursively and apply the same per-part rules instead.
-//  3. Everything else → text heuristic (chars / 4).
-function partTokens(part: unknown): number {
-  if (!part || typeof part !== "object") return 0;
-  const p = part as Record<string, unknown>;
-  if (p.type === "file" || p.type === "image" || p.type === "image-data") {
-    return TOKENS_PER_IMAGE;
-  }
-  if (p.type === "tool-result" && p.output !== undefined) {
-    return toolResultTokens(p.output);
-  }
-  return Math.ceil(textOfPart(part).length / CHARS_PER_TOKEN);
-}
-
-// Recursively size a tool result's output. Handles the three shapes the
-// AI SDK v5 emits via `toModelOutput`:
-//   - `{ type: "text", value: string }`            → text heuristic
-//   - `{ type: "json", value: <serializable> }`    → text heuristic
-//   - `{ type: "content", value: <part[]> }`       → sum of `partTokens`
-// plus the legacy plain-string and plain-object shapes.
-function toolResultTokens(output: unknown): number {
-  if (output === null || output === undefined) return 0;
-  if (typeof output === "string") {
-    return Math.ceil(output.length / CHARS_PER_TOKEN);
-  }
-  if (typeof output !== "object") return 0;
-  const o = output as Record<string, unknown>;
-  if (o.type === "content" && Array.isArray(o.value)) {
-    let total = 0;
-    for (const sub of o.value) total += partTokens(sub);
-    return total;
-  }
-  // text/json/error variants and any unknown shape — fall back to the
-  // serialized length, which is a safe upper bound for purely-textual
-  // outputs (the only over-counting case is multimodal `content`, which
-  // we just handled above).
-  try {
-    return Math.ceil(JSON.stringify(output).length / CHARS_PER_TOKEN);
-  } catch {
-    return 0;
-  }
-}
-
-function messageTokens(message: ModelMessage): number {
-  const { content } = message;
-  if (typeof content === "string") {
-    return Math.ceil(content.length / CHARS_PER_TOKEN);
-  }
-  if (!Array.isArray(content)) return 0;
-  let total = 0;
-  for (const part of content) total += partTokens(part);
-  return total;
-}
-
-export function estimateTokens(messages: ModelMessage[]): number {
-  let total = 0;
-  for (const m of messages) total += messageTokens(m);
-  return total;
-}
 
 // === Summarization =======================================================
 
@@ -130,20 +31,11 @@ Rules:
 - Write in third person ("the user asked...", "the assistant created...").
 - If a previous summary is provided, MERGE it with the new content into a single summary that respects the character cap.`;
 
-interface SummarizeArgs {
-  messagesToFold: ModelMessage[];
-  previousSummary: string | null;
-  summarizerModel: LanguageModel;
-}
-
 async function summarize({
   messagesToFold,
   previousSummary,
   summarizerModel,
 }: SummarizeArgs): Promise<string | null> {
-  // Render the messages we're folding as a flat transcript. We use a custom
-  // string format rather than passing them as `messages` because the
-  // summarizer is a different model that may not share the same tool schema.
   const transcript = messagesToFold
     .map((m) => `[${m.role.toUpperCase()}]\n${renderContent(m.content)}`)
     .join("\n\n");
@@ -203,47 +95,6 @@ function safeStringify(value: unknown): string {
 }
 
 // === Rolling-summary entry point ========================================
-
-export interface RollingSummaryArgs {
-  // Chronological messages, oldest → newest, post-`convertToModelMessages`.
-  messages: ModelMessage[];
-  // Prior rolling summary persisted on the session, or null on first run.
-  previousSummary: string | null;
-  // The active chat model's full context window (tokens).
-  contextWindow: number;
-  // Model used to produce the summary itself (typically a small/cheap model).
-  // If null, we skip summarization and return messages unchanged.
-  summarizerModel: LanguageModel | null;
-  // Provider-reported input token count from the most recent completed step.
-  // When provided, used as a floor for the trigger check so that switching to
-  // a model with a smaller context window reliably fires summarization even
-  // when the character-based estimate falls short of the new threshold.
-  lastKnownTokens?: number;
-  // Estimated token count for prompt overhead that is NOT in `messages`:
-  // system prompt, tool schemas, etc. Added to the message estimate so the
-  // trigger reflects the full prompt size the provider actually bills for.
-  overheadTokens?: number;
-}
-
-export interface RollingSummaryResult {
-  // Messages to actually send to the chat model (NOT including the summary;
-  // the caller decides where to inject it — usually as a system message).
-  messages: ModelMessage[];
-  // The (possibly newly generated) rolling summary, or null if there isn't
-  // one yet. Persist this back to the session when `summarized` is true.
-  summary: string | null;
-  // True when this call produced a fresh summary (i.e. caller should write
-  // it back to the database). False when nothing changed.
-  summarized: boolean;
-  // Number of head messages folded into the summary on this call. Useful for
-  // metrics / debugging; callers can ignore.
-  foldedCount: number;
-  // Estimated token size of the messages just folded into the summary on
-  // this call. Added to `ChatSession.cumulativeFoldedTokens` by the caller
-  // so the popover's "Input tokens" line stays monotonic across
-  // summarizations (= currentInput + cumulativeFolded).
-  foldedTokens: number;
-}
 
 /**
  * Apply rolling-summary policy to a message history.

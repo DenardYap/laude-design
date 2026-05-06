@@ -10,16 +10,7 @@ import { HintLabel } from "@/components/workspace/canvas/hint-label";
 import type { ScreenshotAreaOverlayProps, Point } from "@/components/workspace/canvas/types/screenshot";
 
 /**
- * Snipping-tool style selection overlay. Mounted at the workspace level so
- * it covers the live canvas (no separate modal, no clone-of-the-canvas
- * trick). When the toolbar enters `screenshot-area` mode we:
- *   1. Pin a fixed-position layer over the captureRef element.
- *   2. Show crosshair cursor + dim-mask UX so it's obvious what's about to
- *      be captured.
- *   3. On mouseup, translate the viewport selection to captureRef-local
- *      coords and hand it off to `onCapture` for cropping/upload.
- *
- * Escape (or a zero-area click) cancels and pops back to "idle".
+ * Snipping-tool style selection overlay.
  */
 export function ScreenshotAreaOverlay({
   captureRef,
@@ -34,10 +25,7 @@ export function ScreenshotAreaOverlay({
   const [end, setEnd] = useState<Point | null>(null);
 
   // Track captureRef bounds so the overlay re-aligns on resize / scroll /
-  // pane-drag. We poll on rAF while active because there's no single event
-  // that catches every layout change (resize observers don't fire on parent
-  // scrolls, scroll listeners miss programmatic resizes from the resizable
-  // panel group, etc).
+  // pane-drag.
   useEffect(() => {
     if (!active) {
       setBounds(null);
@@ -135,9 +123,7 @@ export function ScreenshotAreaOverlay({
         }
       : null;
 
-  // When idle (no drag yet) we fully dim the captureRef so it's obvious the
-  // tool is armed. While dragging, the dim splits into 4 strips around the
-  // selection so the user can see exactly what they're capturing.
+  // When idle (no drag yet) we fully dim the captureRef 
   return (
     <div
       style={{

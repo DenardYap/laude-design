@@ -25,9 +25,7 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
   );
 
   // Before the Zustand persist middleware has finished reading localStorage,
-  // suppress the active-tab highlight entirely. Using `null` means no tab
-  // receives the TAB_ACTIVE class, preventing the Files tab from flashing as
-  // "selected" for a frame before the real persisted value is known.
+  // suppress the active-tab highlight entirely. 
   const visibleActiveTab = hasHydrated ? activeTab : null;
 
   const designIds = useMemo(() => designs.map((d) => d.id), [designs]);
@@ -35,20 +33,13 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
   // Reconcile persisted canvas-tab state against the current server-rendered
   // design list. Runs whenever the server data changes so any stale design IDs
   // (from deleted designs or a stale localStorage entry) are pruned.
-  //
-  // NOTE: `activeTab` is intentionally NOT in the dep array. Including it
-  // caused a race condition: when the AI creates a design, `openDesignTab` sets
-  // `activeTab = "design:{newId}"` before `router.refresh()` delivers the new
-  // design in `designIds`. That intermediate render would see `newId` absent
-  // from the server list and immediately reset the active tab back to "files".
+  // NOTE: `activeTab` is intentionally NOT in the dep array.
   useEffect(() => {
     ensureCanvasHydrated(projectId, designIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, designIds, ensureCanvasHydrated]);
 
-  // Mutable drag state — kept in refs so mousemove handlers are never stale
   const orderRef = useRef<string[]>([...openTabs]);
-  // naturalLeft = tab's left edge with transform:none (updated at drag start and after each swap)
   const dragRef = useRef<{
     tabId: string;
     startX: number;
@@ -57,7 +48,6 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
   const tabElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const filesTabRef = useRef<HTMLButtonElement>(null);
 
-  // Rendered order (triggers re-render on swap) + per-tab offset for the ghost
   const [renderOrder, setRenderOrder] =
     useState<readonly string[]>(openTabs);
   const [dragOffset, setDragOffset] = useState<{
@@ -85,11 +75,8 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
   const handleTabMouseDown = useCallback(
     (id: string, e: ReactMouseEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
-      // Guard: ignore if a drag is already in progress (prevents stacked listeners)
       if (dragRef.current) return;
       e.preventDefault();
-
-      // Cancel any open rename input so tab widths are stable before measuring
       setRenamingId(null);
 
       const draggedEl = tabElsRef.current.get(id);
@@ -154,9 +141,6 @@ export function CanvasTabStrip({ projectId, designs }: CanvasTabStripProps) {
         }
 
         // No swap — clamp visual offset at the strip's hard edges.
-        // Left: use naturalLeft (transform-free baseline) so the clamp doesn't
-        //       oscillate as the transform itself shifts draggedRect.left each frame.
-        // Right: last tab (no right neighbour) stays put.
         let visualDelta = rawDelta;
         const filesRect = filesTabRef.current?.getBoundingClientRect();
         if (filesRect) {

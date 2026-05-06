@@ -42,7 +42,7 @@ export const useUiStore = create<UiState>()(
         set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
     }),
     {
-      name: "claude-design:ui",
+      name: "laude-design:ui",
       // Don't persist the open state across reloads — it should always start
       // closed. Only `sidebarCollapsed` survives.
       partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }),

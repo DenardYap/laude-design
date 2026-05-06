@@ -8,13 +8,13 @@ import {
   type UIMessage,
 } from "ai";
 
-// SECURITY: Never log the request body or the `apiKey` field anywhere in this
-// file. Errors are sanitized by `sanitizeErrorMessage` before they reach the
-// client to prevent leaking key material from provider stack traces.
-import { z } from "zod";
-
+// SECURITY: Never log the decrypted API key anywhere in this file. Errors
+// are sanitized by `sanitizeErrorMessage` before they reach the client to
+// prevent leaking key material from provider stack traces.
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { decryptSecret } from "@/lib/crypto";
+import { limitByUser } from "@/lib/ratelimit";
 import { MissingApiKeyError, resolveModel } from "@/lib/ai/providers";
 import { buildDesignTools } from "@/lib/ai/tools";
 import {
@@ -31,7 +31,8 @@ import {
 import { inlineAttachmentDataUrls } from "@/lib/ai/inline-attachments";
 import { resolveInternalModel } from "@/lib/ai/internal-models";
 import { calculateCost, getModelPricing } from "@/lib/ai/pricing";
-import { getContextWindow } from "@/lib/workspace/types";
+import { getContextWindow } from "@/lib/workspace/utils/models";
+import { sanitizeModelMessages } from "@/lib/ai/sanitize-messages";
 import {
   encodeChatError,
   parseChatError,
@@ -48,14 +49,6 @@ function sanitizeErrorMessage(message: string): string {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const ApiKeyBodySchema = z.object({
-  apiKey: z
-    .string()
-    .min(8, "Key looks too short")
-    .max(512, "Key looks too long")
-    .refine((v) => !/\s/.test(v), "API key cannot contain whitespace"),
-});
-
 interface Body {
   id: string;
   messages: UIMessage[];
@@ -65,8 +58,8 @@ interface Body {
   modelId: string;
   provider: "CLAUDE" | "OPENAI" | "GEMINI";
   activeDesignId: string | null;
-  // apiKey is intentionally absent — it travels as the x-provider-api-key
-  // request header, not in the body, to keep it out of body-level logs.
+  // The user's API key is loaded from the encrypted database row keyed by
+  // (userId, provider) — it never travels in the request body or headers.
   // Optional — older clients may omit it; treat undefined as off.
   selfCritique?: boolean;
 }
@@ -153,6 +146,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   const userId = session.user.id;
 
+  // Per-user limiter on the streaming chat path. The middleware already
+  // applied a coarse per-IP cap; this one is keyed on the authenticated
+  // user so abuse costs the abusing account's own quota and never starves
+  // another user — even if multiple users share an egress IP (NAT, school
+  // network) or the IP-detection layer ever regresses.
+  const userLimit = await limitByUser(userId);
+  if (!userLimit.success) {
+    return NextResponse.json(
+      { error: "You're sending chat requests too fast. Please wait a moment." },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": userLimit.limit.toString(),
+          "X-RateLimit-Remaining": userLimit.remaining.toString(),
+          "X-RateLimit-Reset": userLimit.reset.toString(),
+        },
+      },
+    );
+  }
+
   const { id: projectId } = await params;
   const project = await db.project.findFirst({
     where: { id: projectId, userId },
@@ -172,15 +185,32 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   } = body;
   const selfCritique = body.selfCritique === true;
 
-  // Read the key from the custom header — kept out of the request body so it
-  // doesn't appear in body-level logs or structured request captures. A
-  // reverse proxy can strip `x-provider-api-key` before it ever reaches an
-  // APM tool with a single `proxy_hide_header` directive.
-  const rawApiKey = req.headers.get("x-provider-api-key") ?? "";
+  // Load the encrypted API key for this (user, provider) pair and decrypt
+  // it in memory only for the lifetime of this request. The plaintext is
+  // never returned to the client, never logged, and never persisted in
+  // any non-ciphertext form. A missing row produces the same friendly
+  // banner the legacy "header missing" path used to surface.
+  //
+  // The WHERE clause lets the DB be the authority on expiry time — it
+  // filters out any row whose expiresAt has passed using the DB clock,
+  // which avoids any app/DB clock-drift window.
+  const now = new Date();
+  const apiKeyRow = await db.apiKey.findFirst({
+    where: {
+      userId,
+      provider,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+    select: { ciphertext: true },
+  });
 
-  // Validate the API key before doing any expensive DB work.
-  const keyParse = ApiKeyBodySchema.safeParse({ apiKey: rawApiKey });
-  if (!keyParse.success) {
+  // Lazy-expire: clean up any row that just aged out so the next GET /api-keys
+  // response and the UI are both kept consistent without a separate cron job.
+  await db.apiKey.deleteMany({
+    where: { userId, provider, expiresAt: { lte: now } },
+  });
+
+  if (!apiKeyRow) {
     return NextResponse.json(
       {
         error: encodeChatError({
@@ -191,7 +221,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       { status: 400 },
     );
   }
-  const { apiKey } = keyParse.data; // validated + trimmed value
+  let apiKey: string;
+  try {
+    apiKey = decryptSecret(apiKeyRow.ciphertext);
+  } catch (err) {
+    console.error("[chat] failed to decrypt API key", err);
+    return NextResponse.json(
+      {
+        error: encodeChatError({
+          type: "api-key-missing",
+          provider,
+        }),
+      },
+      { status: 500 },
+    );
+  }
 
   const chatSession = await db.chatSession.findFirst({
     where: { id: sessionId, projectId },
@@ -459,7 +503,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const result = streamText({
         model,
         system: systemPrompt,
-        messages: rolling.messages,
+        messages: sanitizeModelMessages(rolling.messages),
         tools,
         stopWhen: (state) =>
           stepCountIs(stepCeiling)(state) ||
