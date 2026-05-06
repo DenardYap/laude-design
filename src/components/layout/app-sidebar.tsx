@@ -14,6 +14,14 @@ export function AppSidebar() {
   const mobileOpen = useUiStore((s) => s.mobileNavOpen);
   const setMobileOpen = useUiStore((s) => s.setMobileNavOpen);
 
+  // Rehydrate the UI store from localStorage after mount. The store uses
+  // skipHydration:true so both server and client first renders use the same
+  // defaults (avoiding a hydration mismatch crash). This call syncs the real
+  // persisted value (e.g. sidebarCollapsed) on the very next tick.
+  useEffect(() => {
+    useUiStore.persist.rehydrate();
+  }, []);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {

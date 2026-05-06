@@ -46,6 +46,13 @@ export const useUiStore = create<UiState>()(
       // Don't persist the open state across reloads — it should always start
       // closed. Only `sidebarCollapsed` survives.
       partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }),
+      // Skip automatic hydration so the server and client initial renders agree
+      // (both use the default `sidebarCollapsed: false`). Without this,
+      // Zustand synchronously reads localStorage during client hydration, which
+      // produces different DOM than the server HTML and causes React's
+      // reconciler to throw "Cannot read properties of null (reading
+      // 'removeChild')". Manual rehydration happens in AppSidebar after mount.
+      skipHydration: true,
     },
   ),
 );
