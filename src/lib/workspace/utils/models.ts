@@ -73,7 +73,7 @@ export const MODEL_OPTIONS: ModelOption[] = [
   },
 ];
 
-const FALLBACK_CONTEXT_WINDOW = 128_000;
+const FALLBACK_CONTEXT_WINDOW = 32_000;
 
 export function getContextWindow(provider: ModelProvider, modelId: string): number {
   const match = MODEL_OPTIONS.find(
