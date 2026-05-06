@@ -32,6 +32,3 @@ next-env.d.ts
 
 # User uploads (local-only MVP storage)
 public/uploads/
-
-# Demo videos (too large for git, host externally)
-public/demo/

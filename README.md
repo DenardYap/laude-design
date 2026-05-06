@@ -4,8 +4,6 @@ An open-source agentic design workspace with any model you want.
 
 **[laude-design.com](https://laude-design.com)** · Self-host in 60 seconds
 
-The server at laude-design.com runs exactly the code in this repo. If you want to verify what happens to your keys, read the source.
-
 ## What it does
 
 Laude Design pairs a chat interface with a live Sandpack canvas. You describe what you want, the AI writes React + Tailwind code, and you see it rendered immediately. No copy-pasting between tools.
@@ -78,11 +76,15 @@ Skills are persistent system-prompt additions you toggle per project. Upload you
 
 ## How key storage works
 
-Your keys live in your browser's `localStorage` (under `laude.apiKeys.v1`). On each chat request, the key is sent in the `x-provider-api-key` request header, used in-memory to call the LLM, and dropped when the request ends. **No code path in this repo writes the key to the database, to disk, or to a log line** — you can verify by searching the source for that header name. A full database compromise would reveal zero API keys.
+When you save a key it is encrypted with **AES-256-GCM** before it is written to the database. The encryption secret (`ENCRYPTION_KEY` in your `.env`) is a 32-byte value held outside the application database — a full database compromise reveals only ciphertext, not plaintext keys.
 
-A strict Content-Security-Policy is set on every response (see [`src/middleware.ts`](src/middleware.ts)) — `connect-src 'self'` plus `script-src 'strict-dynamic'` with a per-request nonce — so even a successful XSS attack can't exfiltrate the localStorage entry to an outside origin.
+On each chat request the ciphertext is fetched and decrypted in memory for the duration of the outbound call to the provider, then discarded. The plaintext key is **never written to disk, never logged, and never returned to the browser** — the API exposes only the last four characters of each key as a display hint (e.g. `…k3bP`), plus an optional expiry timestamp.
 
-The honest trust model: the deployed server *can technically* read the key for the duration of the request — that's true of any byok product where the key transits a server. What you get instead is verifiability: the server at laude-design.com runs exactly the code in this repo, and "is the key being persisted/logged anywhere?" is a question you can answer by reading [`src/app/api/projects/[id]/chat/route.ts`](src/app/api/projects/[id]/chat/route.ts) and grepping for `x-provider-api-key`. If you want stronger isolation than that, self-host.
+You can set keys to auto-expire after 7, 14, or 30 days, or keep them indefinitely. Expired keys are hard-deleted from the database on your next visit; rotating a key overwrites the previous ciphertext immediately.
+
+A strict Content-Security-Policy is set on every response (see [`src/middleware.ts`](src/middleware.ts)) — `connect-src 'self'` plus `script-src 'strict-dynamic'` with a per-request nonce — so even a successful XSS attack cannot exfiltrate key material to an outside origin.
+
+**The honest trust model:** the deployed server decrypts your key in-memory for the duration of each request — that is true of any server-side BYOK product. What you get instead is verifiability: the server at [laude-design.com](https://laude-design.com) runs exactly the code in this repo, and "is the plaintext key ever persisted or logged?" is a question you can answer by reading [`src/lib/crypto.ts`](src/lib/crypto.ts) and [`src/server/actions/api-keys.ts`](src/server/actions/api-keys.ts). If you want stronger isolation than that, self-host.
 
 **I recommend you self-host or just run this project locally if you do not trust [laude-design.com](https://laude-design.com), which is understandable!**
 
@@ -110,7 +112,7 @@ pnpm dev
 `pnpm dev` ([scripts/dev.mjs](scripts/dev.mjs)) handles everything:
 
 1. Checks that Docker is reachable
-2. Creates `.env` from `.env.example` if it's missing, and auto-generates `AUTH_SECRET`
+2. Creates `.env` from `.env.example` if it's missing, and auto-generates `AUTH_SECRET` and `ENCRYPTION_KEY`
 3. Runs `docker compose up -d --wait db` to start Postgres 16
 4. Runs `prisma migrate deploy`
 5. Starts Next.js on <http://localhost:3000>
@@ -147,54 +149,3 @@ docker compose up --build
 ```
 
 Brings up `db` (Postgres) and `app` (Next.js production build) together.
-
-## Project layout
-
-```
-src/
-  app/
-    page.tsx                        # Public landing
-    (auth)/sign-in/                 # Google / GitHub buttons
-    (app)/                          # Protected, sidebar layout
-      projects/
-      api-keys/                     # Configure LLM keys (browser-only storage)
-      skills/                       # Skill library + uploads
-      settings/                     # Account
-    (workspace)/projects/[id]/      # The designer (chat + canvas)
-    (legal)/                        # Terms / Privacy
-    api/
-      auth/[...nextauth]/           # Auth.js routes
-      projects/[id]/chat/           # Streaming AI chat route
-      projects/[id]/upload/         # File / image uploads (Vercel Blob)
-      sessions/[sessionId]/messages/
-      sessions/[sessionId]/questions/
-      plans/[planId]/
-  components/
-    ui/                             # shadcn primitives
-    shared/                         # SearchBar, filters, pagination, lightbox
-    layout/                         # AppSidebar, Topbar
-    workspace/
-      chat/                         # ChatPane, composer, model picker, session tabs
-      canvas/                       # Sandpack renderer, file tree, drawing overlay, screenshots
-      export/                       # Export dialog (image / code prompt / ZIP)
-    projects/ api-keys/ skills/ settings/  # Domain components
-  lib/
-    ai/
-      tools.ts            # Agent tools: createDesign, editDesign, screenshotDesign, planDesign, etc.
-      providers.ts        # Claude / OpenAI / Gemini client setup
-      system-prompt.ts
-      pricing.ts          # Per-model pricing for the chat usage popover
-      context-summarizer.ts
-      inline-attachments.ts
-      screenshot-upload.ts
-    auth.ts               # NextAuth config + requireUser()
-    db.ts                 # Prisma singleton
-    limits.ts             # Per-user resource caps (designs / folders / skills)
-    ratelimit.ts          # Upstash sliding window
-    validators/           # Zod schemas
-  middleware.ts           # CSP + nonce + per-IP rate limit
-  server/actions/         # Server Actions (projects, sessions, designs, folders, skills, auth)
-  stores/                 # Zustand (api-keys-store, workspace-store, ui-store, filters-store)
-prisma/
-  schema.prisma
-```
