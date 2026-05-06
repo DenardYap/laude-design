@@ -32,7 +32,7 @@ TODO: Image generation, allow users to upload image, tagging, create other sorts
 
 The AI screenshots its own Sandpack output and uses that image as visual feedback before committing the next edit. It sees what you see — no more guessing whether the rendered result matches the intent.
 
-<video src="public/demo/demo%20with%20self-critique.mov" controls title="Self-critique mode"></video>
+<video src="public/demo/demo with self-critique.mp4" controls title="Self-critique mode"></video>
 
 ---
 
@@ -40,7 +40,7 @@ The AI screenshots its own Sandpack output and uses that image as visual feedbac
 
 A walkthrough of the agent's built-in tool suite: `createDesign`, `editDesign`, `screenshotDesign`, `planDesign`, drawing support, and more. Each tool maps to a deliberate step in the design-build loop.
 
-<video src="public/demo/tool%20showcase.mov" controls title="Tool showcase"></video>
+<video src="public/demo/tool showcase.mp4" controls title="Tool showcase"></video>
 
 ---
 
@@ -48,7 +48,7 @@ A walkthrough of the agent's built-in tool suite: `createDesign`, `editDesign`, 
 
 Bring your own Claude, OpenAI, or Gemini key and switch models from the composer at any time. No subscription stacked on top of your API bill — you pay only what the provider charges.
 
-<video src="public/demo/use%20your%20favorite%20model.mov" controls title="Use your favorite model"></video>
+<video src="public/demo/use your favorite model.mp4" controls title="Use your favorite model"></video>
 
 ---
 
@@ -56,7 +56,7 @@ Bring your own Claude, OpenAI, or Gemini key and switch models from the composer
 
 Per-token cost tracking in the session usage popover tells you exactly how much input, output, and cache tokens each session consumed — and what it cost — so you stay in control of your API spend.
 
-<video src="public/demo/accurate%20billing.mov" controls title="Accurate billing"></video>
+<video src="public/demo/accurate billing.mp4" controls title="Accurate billing"></video>
 
 ---
 
@@ -64,7 +64,7 @@ Per-token cost tracking in the session usage popover tells you exactly how much 
 
 Export finished work as an image snapshot, a raw code prompt, or a ZIP archive. Hand off to another tool, a different agent, or drop straight into your repo.
 
-<video src="public/demo/export.mov" controls title="Export"></video>
+<video src="public/demo/export.mp4" controls title="Export"></video>
 
 ---
 
@@ -72,7 +72,7 @@ Export finished work as an image snapshot, a raw code prompt, or a ZIP archive. 
 
 Skills are persistent system-prompt additions you toggle per project. Upload your own to encode design system conventions, component patterns, or any reusable context the AI should always have on hand.
 
-<video src="public/demo/upload%20your%20own%20skills.mov" controls title="Upload your own skills"></video>
+<video src="public/demo/upload your own skills.mp4" controls title="Upload your own skills"></video>
 
 ## How key storage works
 
